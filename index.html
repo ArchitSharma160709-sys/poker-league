@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a0e14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: sticky top bar with tab nav; single content column capped at 1180px;
    stat tiles in an auto-fit grid; tables scroll inside their own container. */
@@ -32,9 +32,16 @@
   --flat:#7d8da3;
   --radius:12px;
   --radius-sm:8px;
-  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"EB Garamond",Garamond,"Hoefler Text","Times New Roman",serif;
+  --sans:"EB Garamond",Garamond,"Hoefler Text","Times New Roman",serif;
   color-scheme:dark;
+}
+/* Garamond's default figures are old-style, which stagger in a column.
+   Force lining, tabular figures anywhere numbers line up. */
+.num,.tile .v,.pcard .net,.balance .bv,.seat-label .sn,
+input[type=number],table td,table th{
+  font-variant-numeric:lining-nums tabular-nums;
+  font-feature-settings:"lnum" 1,"tnum" 1;
 }
 
 *{box-sizing:border-box}
@@ -43,8 +50,8 @@ body{
   background:var(--bg);
   color:var(--ink);
   font-family:var(--sans);
-  font-size:15px;
-  line-height:1.5;
+  font-size:17px;          /* Garamond runs small, so the base is set larger */
+  line-height:1.55;
   -webkit-font-smoothing:antialiased;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
@@ -108,9 +115,9 @@ main{padding-block:24px 56px}
 section.view{display:flex;flex-direction:column;gap:22px}
 
 /* ---------- headings ---------- */
-.eyebrow{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
-h2{font-size:21px;font-weight:700;letter-spacing:-.02em;margin:0;text-wrap:balance}
-h3{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+h2{font-size:25px;font-weight:600;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h3{font-size:18px;font-weight:600;margin:0}
 .head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .muted{color:var(--ink-3);font-size:13px}
 
@@ -130,9 +137,9 @@ h3{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em}
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   padding:14px 15px;display:flex;flex-direction:column;gap:3px;min-width:0;
 }
-.tile .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
-.tile .v{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.03em;line-height:1.15}
-.tile .n{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .k{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.tile .v{font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.01em;line-height:1.15}
+.tile .n{font-size:13.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ---------- panels ---------- */
 .panel{
@@ -152,7 +159,7 @@ th,td{padding:9px 12px;text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:left;padding-left:16px}
 th:last-child,td:last-child{padding-right:16px}
 thead th{
-  font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+  font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);
   font-weight:600;border-bottom:1px solid var(--line);background:var(--surface);
   position:sticky;top:0;
 }
@@ -246,8 +253,8 @@ td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .field{display:flex;flex-direction:column;gap:5px;min-width:0}
 .field > label{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .table-stage{
-  position:relative;width:100%;max-width:740px;margin:0 auto;
-  aspect-ratio:100/72;min-height:280px;
+  position:relative;width:100%;max-width:760px;margin:0 auto;
+  aspect-ratio:100/62;min-height:250px;
 }
 .table-stage svg{width:100%;height:100%;display:block}
 .seat-label{
@@ -293,8 +300,11 @@ td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .entry-grid td{padding:6px 8px}
 .entry-grid input[type=number]{width:88px}
 .entry-grid input[type=number].small{width:62px}
-.entry-grid tr.off{opacity:.38}
-.entry-grid tr.off input{pointer-events:none}
+.entry-grid tr.off{opacity:.45}
+/* Only the figure fields are inert until the row is ticked —
+   never the checkbox, or the row could never be switched on. */
+.entry-grid tr.off input[type=number]{pointer-events:none}
+.entry-grid input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;margin:0}
 .balance{
   display:flex;gap:18px;flex-wrap:wrap;align-items:center;
   padding:12px 16px;border-top:1px solid var(--line);background:var(--surface-2);
@@ -1057,7 +1067,7 @@ function renderStandings() {
   tiles.textContent = '';
   tiles.append(
     tile('Nights played', String(nights.length), nights.length ? 'Last played ' + fmtDate(nights[nights.length - 1].played_on) : 'None yet'),
-    tile('Money through the table', money(potTotal), 'Across ' + nights.length + ' night' + (nights.length === 1 ? '' : 's')),
+    tile('Total staked', money(potTotal), 'Across ' + nights.length + ' night' + (nights.length === 1 ? '' : 's')),
     tile('League leader', leader ? leader.player.name : '–', leader ? signed(leader.net) : 'No results yet', leader ? signClass(leader.net) : ''),
     tile('Biggest single night', biggest ? signed(biggest.net) : '–', biggest ? biggest.who : 'No results yet', biggest ? 'pos' : ''),
     tile('Players involved', String(rows.length), 'of ' + state.players.length + ' on the books')
@@ -1327,19 +1337,62 @@ function nightCard(n, byId, withActions) {
 /* ===================================================================
    VIEW: SEAT DRAW
    =================================================================== */
+/* ---- table geometry, all in the 100 x 62 viewBox the table is drawn in ---- */
+const TABLE = {
+  cx: 50, cy: 31,
+  rail:  { w: 82, h: 42 },   // outer edge of the padded rail
+  felt:  { w: 72, h: 32 },   // playing surface
+  bet:   { w: 50, h: 15 }    // betting line
+};
+const rr = d => ({ ...d, r: d.h / 2 });   // a poker table is a racetrack: fully rounded ends
+
+/* Walk the perimeter of a rounded rectangle. t = 0 is bottom-centre,
+   increasing clockwise. Returns the point plus an outward normal. */
+function rrPoint(t, cx, cy, w, h, r) {
+  const sw = w - 2 * r, sh = h - 2 * r, arc = Math.PI * r / 2;
+  const segs = [
+    { len: sw / 2, pt: s => ({ x: cx + s, y: cy + h / 2, nx: 0, ny: 1 }) },
+    { len: arc, pt: s => { const a = (Math.PI / 2) * (1 - s / arc);
+        return { x: cx + sw / 2 + r * Math.cos(a), y: cy + sh / 2 + r * Math.sin(a), nx: Math.cos(a), ny: Math.sin(a) }; } },
+    { len: sh, pt: s => ({ x: cx + w / 2, y: cy + sh / 2 - s, nx: 1, ny: 0 }) },
+    { len: arc, pt: s => { const a = -(Math.PI / 2) * (s / arc);
+        return { x: cx + sw / 2 + r * Math.cos(a), y: cy - sh / 2 + r * Math.sin(a), nx: Math.cos(a), ny: Math.sin(a) }; } },
+    { len: sw, pt: s => ({ x: cx + sw / 2 - s, y: cy - h / 2, nx: 0, ny: -1 }) },
+    { len: arc, pt: s => { const a = -Math.PI / 2 - (Math.PI / 2) * (s / arc);
+        return { x: cx - sw / 2 + r * Math.cos(a), y: cy - sh / 2 + r * Math.sin(a), nx: Math.cos(a), ny: Math.sin(a) }; } },
+    { len: sh, pt: s => ({ x: cx - w / 2, y: cy - sh / 2 + s, nx: -1, ny: 0 }) },
+    { len: arc, pt: s => { const a = Math.PI - (Math.PI / 2) * (s / arc);
+        return { x: cx - sw / 2 + r * Math.cos(a), y: cy + sh / 2 + r * Math.sin(a), nx: Math.cos(a), ny: Math.sin(a) }; } },
+    { len: sw / 2, pt: s => ({ x: cx - sw / 2 + s, y: cy + h / 2, nx: 0, ny: 1 }) }
+  ];
+  const total = segs.reduce((a, s) => a + s.len, 0);
+  let d = (((t % 1) + 1) % 1) * total;
+  for (const s of segs) { if (d <= s.len) return s.pt(d); d -= s.len; }
+  return segs[0].pt(0);
+}
+
 function seatPositions(n, narrow) {
-  // Seats ring the rail, in the same 100x72 space the table is drawn in.
-  // Seat 1 sits bottom-centre and they run clockwise from there.
-  const rx = narrow ? 37 : 41, ry = narrow ? 27 : 29;
-  const out = [];
+  // Seats sit just outside the rail, spaced evenly around the table's perimeter.
+  const out = [], off = narrow ? 5 : 7;
+  const { cx, cy } = TABLE, rail = rr(TABLE.rail);
   for (let i = 0; i < n; i++) {
-    const a = (Math.PI / 2) - (i / n) * Math.PI * 2;
+    const p = rrPoint(i / n, cx, cy, rail.w, rail.h, rail.r);
     out.push({
-      left: 50 + rx * Math.cos(a),          // % of width  (viewBox width 100)
-      top: (36 + ry * Math.sin(a)) / 72 * 100 // % of height (viewBox height 72)
+      left: p.x + p.nx * off,                     // % of width  (viewBox width 100)
+      top: (p.y + p.ny * off) / 62 * 100,         // % of height (viewBox height 62)
+      edge: Math.abs(p.ny) > 0.7 ? (p.ny > 0 ? 'bottom' : 'top') : 'side'
     });
   }
   return out;
+}
+
+/* SVG path for a rounded rectangle, used for the rail, felt and betting line. */
+function rrPath(cx, cy, w, h, r) {
+  const x = cx - w / 2, y = cy - h / 2;
+  return `M ${x + r} ${y} H ${x + w - r} A ${r} ${r} 0 0 1 ${x + w} ${y + r}`
+       + ` V ${y + h - r} A ${r} ${r} 0 0 1 ${x + w - r} ${y + h}`
+       + ` H ${x + r} A ${r} ${r} 0 0 1 ${x} ${y + h - r}`
+       + ` V ${y + r} A ${r} ${r} 0 0 1 ${x + r} ${y} Z`;
 }
 
 function renderDrawTable() {
@@ -1350,22 +1403,66 @@ function renderDrawTable() {
   stage.classList.toggle('narrow', narrow);
   const pos = seatPositions(n, narrow);
 
-  const svg = sv('svg', { viewBox: '0 0 100 72', preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
-  // rail
-  svg.append(sv('ellipse', { cx: 50, cy: 36.6, rx: 38, ry: 25.5, fill: '#0e141d' }));
-  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 38, ry: 25.5, fill: '#1d2735' }));
-  // felt
-  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 34, ry: 21.8, fill: '#13302a' }));
-  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 34, ry: 21.8, fill: 'none',
-    stroke: 'rgba(255,255,255,.07)', 'stroke-width': .5 }));
+  const { cx, cy } = TABLE;
+  const rail = rr(TABLE.rail), felt = rr(TABLE.felt), bet = rr(TABLE.bet);
+
+  const svg = sv('svg', { viewBox: '0 0 100 62', preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
+
+  const defs = sv('defs');
+  // padded leather rail: lighter at the top edge, dark underneath
+  const railGrad = sv('linearGradient', { id: 'railG', x1: 0, y1: 0, x2: 0, y2: 1 });
+  railGrad.append(
+    sv('stop', { offset: '0%',   'stop-color': '#3b2b22' }),
+    sv('stop', { offset: '45%',  'stop-color': '#2a1e18' }),
+    sv('stop', { offset: '100%', 'stop-color': '#17100c' })
+  );
+  // felt: lit from above centre, falling off toward the rail
+  const feltGrad = sv('radialGradient', { id: 'feltG', cx: '50%', cy: '42%', r: '68%' });
+  feltGrad.append(
+    sv('stop', { offset: '0%',   'stop-color': '#1d5f44' }),
+    sv('stop', { offset: '65%',  'stop-color': '#154330' }),
+    sv('stop', { offset: '100%', 'stop-color': '#0e2d20' })
+  );
+  defs.append(railGrad, feltGrad);
+  svg.append(defs);
+
+  // shadow on the floor
+  svg.append(sv('path', { d: rrPath(cx, cy + 1.4, rail.w, rail.h, rail.r), fill: 'rgba(0,0,0,.5)' }));
+  // the rail itself
+  svg.append(sv('path', { d: rrPath(cx, cy, rail.w, rail.h, rail.r), fill: 'url(#railG)' }));
+  // highlight along the rail's outer edge
+  svg.append(sv('path', { d: rrPath(cx, cy, rail.w, rail.h, rail.r), fill: 'none',
+    stroke: 'rgba(255,255,255,.10)', 'stroke-width': .5 }));
+  // stitching, just inside the rail
+  svg.append(sv('path', { d: rrPath(cx, cy, rail.w - 3.4, rail.h - 3.4, rail.r - 1.7), fill: 'none',
+    stroke: 'rgba(214,180,140,.30)', 'stroke-width': .35, 'stroke-dasharray': '1.1 1.3',
+    'stroke-linecap': 'round' }));
+  // felt, dropped slightly into the rail
+  svg.append(sv('path', { d: rrPath(cx, cy, felt.w, felt.h, felt.r), fill: 'rgba(0,0,0,.45)' }));
+  svg.append(sv('path', { d: rrPath(cx, cy - 0.35, felt.w, felt.h, felt.r), fill: 'url(#feltG)' }));
+  svg.append(sv('path', { d: rrPath(cx, cy - 0.35, felt.w, felt.h, felt.r), fill: 'none',
+    stroke: 'rgba(0,0,0,.4)', 'stroke-width': .6 }));
   // betting line
-  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 24, ry: 14, fill: 'none',
-    stroke: 'rgba(255,255,255,.08)', 'stroke-width': .4, 'stroke-dasharray': '1.6 1.6' }));
-  const mark = sv('text', { x: 50, y: 37.6, 'text-anchor': 'middle',
-    fill: 'rgba(255,255,255,.14)', 'font-size': 5.5, 'font-family': 'Archivo, sans-serif', 'font-weight': 700,
-    'letter-spacing': .4 });
+  svg.append(sv('path', { d: rrPath(cx, cy, bet.w, bet.h, bet.r), fill: 'none',
+    stroke: 'rgba(255,255,255,.13)', 'stroke-width': .35, 'stroke-dasharray': '1.5 1.8' }));
+
+  // community cards
+  const cw = 5.4, ch = 7.6, gap = 1.3;
+  const row = 5 * cw + 4 * gap;
+  for (let i = 0; i < 5; i++) {
+    svg.append(sv('rect', {
+      x: cx - row / 2 + i * (cw + gap), y: cy - ch / 2 - 1.6,
+      width: cw, height: ch, rx: .8, ry: .8,
+      fill: 'rgba(255,255,255,.05)', stroke: 'rgba(255,255,255,.14)', 'stroke-width': .3
+    }));
+  }
+
+  const mark = sv('text', { x: cx, y: cy + 11.6, 'text-anchor': 'middle',
+    fill: 'rgba(255,255,255,.17)', 'font-size': 3.6,
+    'font-family': 'EB Garamond, Garamond, serif', 'letter-spacing': 1.1 });
   mark.textContent = 'POKER LEAGUE';
   svg.append(mark);
+
   stage.append(svg);
 
   pos.forEach((pt, i) => {
