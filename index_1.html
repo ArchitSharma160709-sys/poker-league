@@ -1,0 +1,1837 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poker League</title>
+<meta name="description" content="Standings, player stats and the seat draw for our poker nights.">
+<meta name="theme-color" content="#0a0e14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky top bar with tab nav; single content column capped at 1180px;
+   stat tiles in an auto-fit grid; tables scroll inside their own container. */
+:root{
+  --bg:#0a0e14;
+  --surface:#111824;
+  --surface-2:#18212f;
+  --surface-3:#1f2a3a;
+  --line:#222e3f;
+  --line-soft:#1a2432;
+  --ink:#e9eff7;
+  --ink-2:#94a4b8;
+  --ink-3:#62748c;
+  --accent:#e0a22a;
+  --accent-ink:#1a1206;
+  --accent-soft:rgba(224,162,42,.13);
+  --up:#35c06a;
+  --up-soft:rgba(53,192,106,.13);
+  --down:#f0604d;
+  --down-soft:rgba(240,96,77,.13);
+  --flat:#7d8da3;
+  --radius:12px;
+  --radius-sm:8px;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+img{max-width:100%;display:block}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+a{color:var(--accent);text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.wrap{
+  width:100%;max-width:1180px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  background:rgba(10,14,20,.86);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{display:flex;align-items:center;gap:16px;padding-block:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.pip{
+  width:30px;height:30px;border-radius:7px;flex:none;
+  background:linear-gradient(145deg,var(--accent),#b07c14);
+  color:var(--accent-ink);display:grid;place-items:center;
+  font-size:15px;font-weight:800;
+}
+.brand h1{font-size:17px;font-weight:700;letter-spacing:-.015em;margin:0;white-space:nowrap}
+.brand .sub{font-size:11px;color:var(--ink-3);letter-spacing:.09em;text-transform:uppercase;margin:0}
+
+.season{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-3)}
+select,input[type=text],input[type=date],input[type=number],input[type=email],input[type=password]{
+  background:var(--surface-2);color:var(--ink);border:1px solid var(--line);
+  border-radius:var(--radius-sm);padding:7px 10px;font-family:var(--sans);font-size:14px;
+}
+input[type=number]{font-family:var(--mono);text-align:right}
+select{padding-right:26px}
+
+nav.tabs{
+  display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;
+  border-top:1px solid var(--line-soft);
+}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  background:none;border:0;border-bottom:2px solid transparent;
+  padding:11px 14px;color:var(--ink-3);font-weight:500;font-size:14px;
+  cursor:pointer;white-space:nowrap;transition:color .15s;
+}
+nav.tabs button:hover{color:var(--ink-2)}
+nav.tabs button[aria-current=page]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs .count{
+  display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 5px;
+  margin-left:6px;border-radius:9px;background:var(--accent);color:var(--accent-ink);
+  font-size:11px;font-weight:700;font-family:var(--mono);vertical-align:1px;
+}
+
+main{padding-block:24px 56px}
+section.view{display:flex;flex-direction:column;gap:22px}
+
+/* ---------- headings ---------- */
+.eyebrow{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+h2{font-size:21px;font-weight:700;letter-spacing:-.02em;margin:0;text-wrap:balance}
+h3{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.muted{color:var(--ink-3);font-size:13px}
+
+/* ---------- notice ---------- */
+.notice{
+  display:flex;gap:11px;align-items:flex-start;
+  background:var(--accent-soft);border:1px solid rgba(224,162,42,.3);
+  border-radius:var(--radius);padding:12px 14px;font-size:13.5px;color:var(--ink-2);
+}
+.notice strong{color:var(--ink);font-weight:600}
+.notice.bad{background:var(--down-soft);border-color:rgba(240,96,77,.32)}
+.notice.good{background:var(--up-soft);border-color:rgba(53,192,106,.32)}
+
+/* ---------- stat tiles ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 15px;display:flex;flex-direction:column;gap:3px;min-width:0;
+}
+.tile .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.tile .v{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.03em;line-height:1.15}
+.tile .n{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- panels ---------- */
+.panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;
+}
+.panel-body{padding:16px}
+.scroll-x{overflow-x:auto}
+
+/* ---------- table ---------- */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 12px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:16px}
+th:last-child,td:last-child{padding-right:16px}
+thead th{
+  font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:600;border-bottom:1px solid var(--line);background:var(--surface);
+  position:sticky;top:0;
+}
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{color:var(--ink-2)}
+thead th .arrow{opacity:.45;font-size:9px;margin-left:3px}
+tbody tr{border-bottom:1px solid var(--line-soft)}
+tbody tr:last-child{border-bottom:0}
+tbody tr.clickable{cursor:pointer}
+tbody tr.clickable:hover{background:var(--surface-2)}
+td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.rank{font-family:var(--mono);color:var(--ink-3);width:34px}
+.rank.medal{color:var(--accent);font-weight:600}
+
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.pos{color:var(--up)}
+.neg{color:var(--down)}
+.zero{color:var(--flat)}
+
+/* ---------- avatars ---------- */
+.av{
+  width:30px;height:30px;border-radius:50%;flex:none;object-fit:cover;
+  background:var(--surface-3);border:1px solid var(--line);
+  display:grid;place-items:center;
+  font-size:11.5px;font-weight:700;color:var(--ink-2);letter-spacing:.02em;
+  font-family:var(--sans);overflow:hidden;
+}
+.av.lg{width:78px;height:78px;font-size:27px;border-radius:14px}
+.av.xl{width:96px;height:96px;font-size:34px;border-radius:16px}
+
+/* ---------- player grid ---------- */
+.grid-players{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
+.pcard{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px;display:flex;flex-direction:column;align-items:center;gap:9px;
+  cursor:pointer;text-align:center;transition:border-color .15s,transform .15s;
+}
+.pcard:hover{border-color:var(--surface-3);transform:translateY(-2px)}
+.pcard .nm{font-weight:600;font-size:15px}
+.pcard .net{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.02em}
+.pcard .meta{font-size:11.5px;color:var(--ink-3)}
+
+/* ---------- profile ---------- */
+.profile-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.profile-head .idy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.profile-head .nm{font-size:27px;font-weight:700;letter-spacing:-.025em;line-height:1.1}
+.backlink{
+  background:none;border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:6px 11px;color:var(--ink-2);font-size:13px;cursor:pointer;align-self:flex-start;
+}
+.backlink:hover{border-color:var(--surface-3);color:var(--ink)}
+.form-row{display:flex;gap:3px;align-items:center}
+.chip{
+  width:7px;height:20px;border-radius:2px;background:var(--surface-3);
+}
+.chip.w{background:var(--up)}
+.chip.l{background:var(--down)}
+.chip.e{background:var(--flat)}
+
+/* ---------- charts ---------- */
+.chart-wrap{position:relative;width:100%}
+.chart-wrap svg{width:100%;height:auto;display:block;overflow:visible}
+.tipbox{
+  position:absolute;pointer-events:none;z-index:5;opacity:0;transition:opacity .1s;
+  background:var(--surface-3);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:8px 10px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.45);
+  white-space:nowrap;transform:translate(-50%,-115%);
+}
+.tipbox .t-d{color:var(--ink-3);font-size:11px;margin-bottom:2px}
+.tipbox .t-v{font-family:var(--mono);font-weight:600;font-size:14px}
+
+/* ---------- buttons ---------- */
+.btn{
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:9px 15px;font-weight:500;font-size:14px;cursor:pointer;
+  transition:border-color .15s,background .15s;
+}
+.btn:hover{border-color:var(--surface-3);background:var(--surface-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{background:#eeb13a;border-color:#eeb13a}
+.btn.ok{background:var(--up-soft);border-color:rgba(53,192,106,.35);color:var(--up);font-weight:600}
+.btn.ok:hover{background:rgba(53,192,106,.22)}
+.btn.no{background:var(--down-soft);border-color:rgba(240,96,77,.35);color:var(--down)}
+.btn.no:hover{background:rgba(240,96,77,.22)}
+.btn.big{padding:13px 22px;font-size:15px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-row{display:flex;gap:9px;flex-wrap:wrap}
+
+/* ---------- seat draw ---------- */
+.draw-controls{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field > label{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.table-stage{
+  position:relative;width:100%;max-width:740px;margin:0 auto;
+  aspect-ratio:100/72;min-height:280px;
+}
+.table-stage svg{width:100%;height:100%;display:block}
+.seat-label{
+  position:absolute;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  width:92px;text-align:center;pointer-events:none;
+}
+.seat-label .sn{
+  font-size:10px;font-family:var(--mono);color:var(--ink-3);letter-spacing:.06em;
+}
+.seat-label .pn{
+  font-size:13px;font-weight:600;line-height:1.2;
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:4px 11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.seat-label.dealer .pn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.seat-label .dbtn{
+  position:absolute;bottom:-7px;right:6px;
+  width:19px;height:19px;border-radius:50%;background:var(--accent);color:var(--accent-ink);
+  font-size:10px;font-weight:800;display:grid;place-items:center;
+  font-family:var(--sans);box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.spinning .pn{color:var(--ink-3)}
+.table-stage.narrow .seat-label{width:66px}
+.table-stage.narrow .seat-label .pn{font-size:11.5px;padding:3px 7px}
+.table-stage.narrow .seat-label .sn{font-size:9px}
+.table-stage.narrow .seat-label .dbtn{width:16px;height:16px;font-size:9px;right:2px;bottom:-5px}
+
+.pick-list{display:flex;flex-wrap:wrap;gap:7px}
+.pick{
+  display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:999px;
+  padding:5px 12px 5px 7px;font-size:13.5px;transition:border-color .15s,background .15s;
+}
+.pick:hover{border-color:var(--surface-3)}
+.pick input{accent-color:var(--accent);margin:0;width:14px;height:14px}
+.pick.on{background:var(--accent-soft);border-color:rgba(224,162,42,.4)}
+
+/* ---------- log form ---------- */
+.entry-grid{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+.entry-grid th{font-size:11px}
+.entry-grid th:nth-child(2),.entry-grid td:nth-child(2){text-align:left}
+.entry-grid td{padding:6px 8px}
+.entry-grid input[type=number]{width:88px}
+.entry-grid input[type=number].small{width:62px}
+.entry-grid tr.off{opacity:.38}
+.entry-grid tr.off input{pointer-events:none}
+.balance{
+  display:flex;gap:18px;flex-wrap:wrap;align-items:center;
+  padding:12px 16px;border-top:1px solid var(--line);background:var(--surface-2);
+  font-size:13px;
+}
+.balance .b{display:flex;flex-direction:column;gap:1px}
+.balance .bk{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.balance .bv{font-family:var(--mono);font-size:17px;font-weight:600}
+
+/* ---------- pending cards ---------- */
+.pending{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.pending + .pending{margin-top:10px}
+.badge{
+  display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.badge.pend{background:var(--accent-soft);color:var(--accent)}
+.badge.appr{background:var(--up-soft);color:var(--up)}
+.badge.rej{background:var(--down-soft);color:var(--down)}
+
+.empty{
+  text-align:center;padding:40px 20px;color:var(--ink-3);font-size:14px;
+  display:flex;flex-direction:column;gap:8px;align-items:center;
+}
+.empty .big{font-size:16px;color:var(--ink-2);font-weight:600}
+
+.signin{display:flex;flex-direction:column;gap:12px;max-width:330px}
+
+footer{
+  border-top:1px solid var(--line);padding-block:20px 30px;
+  font-size:12px;color:var(--ink-3);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+
+@media (max-width:620px){
+  .tile .v{font-size:21px}
+  .profile-head .nm{font-size:22px}
+  .brand .sub{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="pip">&spades;</div>
+        <div>
+          <h1>Poker League</h1>
+          <p class="sub" id="brandSub">Season 2</p>
+        </div>
+      </div>
+      <div class="season">
+        <label for="seasonSel">Season</label>
+        <select id="seasonSel"></select>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Sections">
+      <button data-view="table" aria-current="page">Standings</button>
+      <button data-view="players">Players</button>
+      <button data-view="nights">Nights</button>
+      <button data-view="draw">Seat draw</button>
+      <button data-view="log">Log a night</button>
+      <button data-view="admin">Admin<span class="count" id="pendCount" hidden>0</span></button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="modeNotice"></div>
+
+  <!-- ============ STANDINGS ============ -->
+  <section class="view" id="view-table">
+    <div class="tiles" id="leagueTiles"></div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Standings</h2>
+        <span class="muted" id="standingsMeta"></span>
+      </div>
+      <div class="scroll-x">
+        <table id="standings">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Net profit by player</h3>
+        <span class="muted">Approved nights only</span>
+      </div>
+      <div class="panel-body"><div class="chart-wrap" id="netChart"></div></div>
+    </div>
+  </section>
+
+  <!-- ============ PLAYERS ============ -->
+  <section class="view" id="view-players" hidden>
+    <div class="head">
+      <h2>Players</h2>
+      <span class="muted" id="playersMeta"></span>
+    </div>
+    <div class="grid-players" id="playerGrid"></div>
+  </section>
+
+  <!-- ============ PROFILE ============ -->
+  <section class="view" id="view-profile" hidden>
+    <button class="backlink" id="profileBack">&larr; All players</button>
+    <div id="profileBody"></div>
+  </section>
+
+  <!-- ============ NIGHTS ============ -->
+  <section class="view" id="view-nights" hidden>
+    <div class="head">
+      <h2>Nights</h2>
+      <span class="muted" id="nightsMeta"></span>
+    </div>
+    <div id="nightsList"></div>
+  </section>
+
+  <!-- ============ SEAT DRAW ============ -->
+  <section class="view" id="view-draw" hidden>
+    <div class="head">
+      <h2>Seat draw</h2>
+      <span class="muted">Random seats and dealer button</span>
+    </div>
+    <div class="panel">
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:16px">
+        <div class="draw-controls">
+          <div class="field">
+            <label for="seatCount">Players at the table</label>
+            <select id="seatCount"></select>
+          </div>
+          <div class="btn-row">
+            <button class="btn primary big" id="spinBtn">Spin the seats</button>
+            <button class="btn" id="clearDraw">Reset</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Who's playing <span id="pickCount" style="color:var(--ink-2);letter-spacing:0;text-transform:none;font-weight:500"></span></label>
+          <div class="pick-list" id="pickList"></div>
+        </div>
+        <div id="drawNotice"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-body">
+        <div class="table-stage" id="stage"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LOG A NIGHT ============ -->
+  <section class="view" id="view-log" hidden>
+    <div class="head">
+      <h2>Log a night</h2>
+      <span class="muted">Goes to Archit for approval before it counts</span>
+    </div>
+    <div class="panel">
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:14px">
+        <div class="draw-controls">
+          <div class="field">
+            <label for="logDate">Date played</label>
+            <input type="date" id="logDate">
+          </div>
+          <div class="field">
+            <label for="logHost">Host</label>
+            <select id="logHost"></select>
+          </div>
+          <div class="field">
+            <label for="logBy">Your name</label>
+            <input type="text" id="logBy" placeholder="who's filling this in" autocomplete="name">
+          </div>
+        </div>
+        <p class="muted" style="margin:0">Tick everyone who played. <strong style="color:var(--ink-2);font-weight:600">Money in</strong> is their buy-in plus every rebuy. <strong style="color:var(--ink-2);font-weight:600">Cash out</strong> is what they left the table with.</p>
+      </div>
+      <div class="scroll-x">
+        <table class="entry-grid" id="entryGrid">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="balance" id="balanceBar"></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
+        <div id="logNotice"></div>
+        <div class="btn-row">
+          <button class="btn primary big" id="submitNight">Submit for approval</button>
+          <button class="btn" id="resetLog">Clear form</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN ============ -->
+  <section class="view" id="view-admin" hidden>
+    <div class="head">
+      <h2>Admin</h2>
+      <span class="muted" id="adminMeta"></span>
+    </div>
+    <div id="adminBody"></div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>Poker League &middot; built for the lads</span>
+  <span id="footMeta"></span>
+</footer>
+
+<script>
+/* ===================================================================
+   CONFIG — paste your two Supabase values here to go live.
+   Supabase dashboard → Project Settings → API
+   =================================================================== */
+const CONFIG = {
+  supabaseUrl:   'https://vyzhcoleckdzuckxzqqy.supabase.co',
+  supabaseKey:   'sb_publishable_8KXeR-bRAmxg4wG2p26Emg_yoVZhrkE',
+  currentSeason: 2
+};
+
+/* ===================================================================
+   SMALL HELPERS
+   =================================================================== */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+function el(tag, attrs = {}, kids = []) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k === 'html') n.innerHTML = v;
+    else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of [].concat(kids)) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+}
+
+const money = n => {
+  const v = Math.round(Number(n) * 100) / 100;
+  const s = Math.abs(v).toLocaleString('en-GB', {
+    minimumFractionDigits: Number.isInteger(v) ? 0 : 2,
+    maximumFractionDigits: 2
+  });
+  return (v < 0 ? '−£' : '£') + s;
+};
+const signed = n => (Number(n) > 0 ? '+' : '') + money(n);
+const signClass = n => (Number(n) > 0 ? 'pos' : Number(n) < 0 ? 'neg' : 'zero');
+const pct = n => (Number.isFinite(n) ? (n > 0 ? '+' : '') + n.toFixed(0) + '%' : '–');
+
+const slugify = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const initials = name => {
+  const words = String(name).trim().split(/\s+/);
+  return (words.length > 1 ? words.map(w => w[0]).join('') : words[0].slice(0, 2)).slice(0, 2).toUpperCase();
+};
+
+function fmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+function fmtDateLong(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+}
+function todayISO() {
+  const d = new Date();
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+}
+
+/* Photos. Drop a file in assets/players/ and add it here — the avatar
+   falls back to the player's initials for anyone not listed. */
+const PHOTOS = {
+  // ollie: 'ollie.jpg',
+};
+
+function avatar(player, size = '') {
+  const box = el('div', { class: 'av ' + size, text: initials(player.name) });
+  const file = player.photo || PHOTOS[player.slug];
+  if (file) {
+    const img = new Image();
+    img.alt = player.name;
+    img.onload = () => { box.textContent = ''; box.append(img); };
+    img.src = 'assets/players/' + file;
+  }
+  return box;
+}
+
+/* ===================================================================
+   DATA LAYER — Supabase REST, or local demo data
+   =================================================================== */
+const LIVE = Boolean(CONFIG.supabaseUrl && CONFIG.supabaseKey);
+const DEMO_KEY = 'pokerleague.demo.v1';
+
+const api = {
+  headers(sessionToken) {
+    // The key goes on apikey only. Publishable keys are rejected as "Invalid JWT"
+    // if sent as a Bearer token, so Authorization carries a real session or nothing.
+    const h = {
+      'apikey': CONFIG.supabaseKey,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    };
+    if (sessionToken) h['Authorization'] = 'Bearer ' + sessionToken;
+    return h;
+  },
+  async req(path, opts = {}) {
+    const res = await fetch(CONFIG.supabaseUrl + '/rest/v1' + path, {
+      ...opts,
+      headers: { ...this.headers(state.token), ...(opts.headers || {}) }
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || ('Request failed (' + res.status + ')'));
+    return text ? JSON.parse(text) : null;
+  },
+  async signIn(email, password) {
+    const res = await fetch(CONFIG.supabaseUrl + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': CONFIG.supabaseKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || 'Could not sign in');
+    return data;
+  }
+};
+
+/* ---- demo seed: clearly-marked example data so the page isn't empty ---- */
+function demoSeed() {
+  const names = ['Ollie','Shayan','Archit','Umesh','Callum','Maxi','Curran','Danny',
+                 'Noah','Louis','Taiki','Harry','James','Oscar','Freddie'];
+  const players = names.map((n, i) => ({ id: i + 1, name: n, slug: slugify(n), photo: null, active: true }));
+  const pid = n => players.find(p => p.name === n).id;
+  const night = (id, date, host, status, by, rows) => ({
+    id, season: 2, played_on: date, host_id: pid(host), venue: null, note: null,
+    status, submitted_by: by, created_at: date + 'T22:00:00Z',
+    entries: rows.map(([n, inn, out, rb]) => ({
+      night_id: id, player_id: pid(n), money_in: inn, cash_out: out, rebuys: rb || 0
+    }))
+  });
+  const nights = [
+    night(1, '2026-09-12', 'Ollie', 'approved', 'Ollie', [
+      ['Ollie',10,0],['Shayan',20,55,1],['Archit',10,0],['Umesh',10,5],['Maxi',10,0],['Curran',20,20,1]
+    ]),
+    night(2, '2026-09-19', 'Maxi', 'approved', 'Maxi', [
+      ['Ollie',20,45,1],['Shayan',10,0],['Archit',10,25],['Umesh',10,0],['Maxi',10,0],['Louis',10,0],['Harry',10,10]
+    ]),
+    night(3, '2026-09-26', 'Shayan', 'approved', 'Shayan', [
+      ['Shayan',10,35],['Archit',20,0,1],['Curran',10,0],['Danny',10,20],['Noah',10,0],['Oscar',10,5],['Freddie',10,20]
+    ]),
+    night(4, '2026-10-03', 'Archit', 'pending', 'Curran', [
+      ['Ollie',10,0],['Shayan',10,30],['Archit',10,0],['Curran',20,40,1],['Maxi',10,0],['James',10,0]
+    ])
+  ];
+  return { players, nights };
+}
+
+function demoLoad() {
+  try {
+    const raw = localStorage.getItem(DEMO_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* storage unavailable — fall through to a fresh seed */ }
+  const seed = demoSeed();
+  demoSave(seed);
+  return seed;
+}
+function demoSave(data) {
+  try { localStorage.setItem(DEMO_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
+}
+
+const store = {
+  async load() {
+    if (!LIVE) {
+      const d = demoLoad();
+      return { players: d.players, nights: d.nights };
+    }
+    const [players, nights, entries] = await Promise.all([
+      api.req('/players?select=*&order=name.asc'),
+      api.req('/nights?select=*&order=played_on.asc'),
+      api.req('/entries?select=*')
+    ]);
+    const byNight = new Map(nights.map(n => [n.id, []]));
+    for (const e of entries) if (byNight.has(e.night_id)) byNight.get(e.night_id).push(e);
+    nights.forEach(n => { n.entries = byNight.get(n.id) || []; });
+    return { players, nights };
+  },
+
+  async submitNight(payload) {
+    if (!LIVE) {
+      const d = demoLoad();
+      const id = Math.max(0, ...d.nights.map(n => n.id)) + 1;
+      d.nights.push({ ...payload.night, id, status: 'pending', entries: payload.entries.map(e => ({ ...e, night_id: id })) });
+      demoSave(d);
+      return;
+    }
+    const [night] = await api.req('/nights', { method: 'POST', body: JSON.stringify([{ ...payload.night, status: 'pending' }]) });
+    await api.req('/entries', { method: 'POST', body: JSON.stringify(payload.entries.map(e => ({ ...e, night_id: night.id }))) });
+  },
+
+  async decide(nightId, status) {
+    if (!LIVE) {
+      const d = demoLoad();
+      const n = d.nights.find(x => x.id === nightId);
+      if (n) { n.status = status; n.decided_at = new Date().toISOString(); }
+      demoSave(d);
+      return;
+    }
+    await api.req('/nights?id=eq.' + nightId, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, decided_at: new Date().toISOString() })
+    });
+  },
+
+  async remove(nightId) {
+    if (!LIVE) {
+      const d = demoLoad();
+      d.nights = d.nights.filter(x => x.id !== nightId);
+      demoSave(d);
+      return;
+    }
+    await api.req('/nights?id=eq.' + nightId, { method: 'DELETE' });
+  }
+};
+
+/* ===================================================================
+   STATE
+   =================================================================== */
+const state = {
+  players: [],
+  nights: [],
+  season: CONFIG.currentSeason,
+  view: 'table',
+  profileSlug: null,
+  token: null,
+  adminEmail: null,
+  sort: { key: 'net', dir: -1 },
+  draw: { count: 8, picked: new Set(), seats: [], dealer: -1, spinning: false },
+  logRows: new Map()
+};
+
+/* ===================================================================
+   STATS ENGINE
+   =================================================================== */
+function approvedNights(season) {
+  return state.nights
+    .filter(n => n.status === 'approved' && Number(n.season) === Number(season))
+    .slice()
+    .sort((a, b) => (a.played_on < b.played_on ? -1 : a.played_on > b.played_on ? 1 : a.id - b.id));
+}
+
+function nightTotals(night) {
+  let inn = 0, out = 0, rebuys = 0;
+  for (const e of night.entries || []) {
+    inn += Number(e.money_in) || 0;
+    out += Number(e.cash_out) || 0;
+    rebuys += Number(e.rebuys) || 0;
+  }
+  return { pot: inn, paid: out, diff: out - inn, rebuys, count: (night.entries || []).length };
+}
+
+function computeStats(season) {
+  const nights = approvedNights(season);
+  const byId = new Map(state.players.map(p => [p.id, p]));
+  const stats = new Map();
+
+  for (const p of state.players) {
+    stats.set(p.id, {
+      player: p, played: 0, moneyIn: 0, cashOut: 0, net: 0, rebuys: 0,
+      wins: 0, losses: 0, evens: 0, hosted: 0,
+      best: null, worst: null, history: [], cumulative: []
+    });
+  }
+
+  for (const n of nights) {
+    if (n.host_id && stats.has(n.host_id)) stats.get(n.host_id).hosted += 1;
+    for (const e of n.entries || []) {
+      const s = stats.get(e.player_id);
+      if (!s) continue;
+      const inn = Number(e.money_in) || 0;
+      const out = Number(e.cash_out) || 0;
+      const net = out - inn;
+      s.played += 1;
+      s.moneyIn += inn;
+      s.cashOut += out;
+      s.net += net;
+      s.rebuys += Number(e.rebuys) || 0;
+      if (net > 0) s.wins += 1; else if (net < 0) s.losses += 1; else s.evens += 1;
+      if (s.best === null || net > s.best.net) s.best = { net, date: n.played_on };
+      if (s.worst === null || net < s.worst.net) s.worst = { net, date: n.played_on };
+      s.history.push({ nightId: n.id, date: n.played_on, moneyIn: inn, cashOut: out, net,
+                       rebuys: Number(e.rebuys) || 0, host: byId.get(n.host_id)?.name || null });
+    }
+  }
+
+  for (const s of stats.values()) {
+    s.avg = s.played ? s.net / s.played : 0;
+    s.roi = s.moneyIn > 0 ? (s.net / s.moneyIn) * 100 : NaN;
+    s.winRate = s.played ? (s.wins / s.played) * 100 : NaN;
+    let run = 0;
+    s.cumulative = s.history.map(h => { run += h.net; return { date: h.date, value: run }; });
+  }
+  return { stats, nights };
+}
+
+function leagueRows(season) {
+  const { stats } = computeStats(season);
+  return Array.from(stats.values())
+    .filter(s => s.played > 0)
+    .sort((a, b) => b.net - a.net || b.roi - a.roi || a.player.name.localeCompare(b.player.name));
+}
+
+/* ===================================================================
+   CHARTS (hand-drawn SVG, one scale, labels inside the viewBox)
+   =================================================================== */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const sv = (tag, attrs = {}) => {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== null && v !== undefined) n.setAttribute(k, v);
+  return n;
+};
+const niceStep = range => {
+  if (!range) return 1;
+  const raw = range / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  return [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+};
+
+/* Horizontal diverging bars: net profit per player, zero line in the middle. */
+function drawNetChart(host, rows) {
+  host.textContent = '';
+  if (!rows.length) { host.append(emptyBlock('No approved nights yet', 'Once a night is approved it shows up here.')); return; }
+
+  const H_ROW = 26, PAD_T = 24, PAD_B = 30, PAD_L = 92, PAD_R = 58;
+  const h = rows.length * H_ROW + PAD_T + PAD_B;
+  const W = 760, plotW = W - PAD_L - PAD_R;
+  const maxAbs = Math.max(10, ...rows.map(r => Math.abs(r.net)));
+  const step = niceStep(maxAbs * 2) / 1;
+  const bound = Math.ceil(maxAbs / step) * step || step;
+  const x = v => PAD_L + plotW / 2 + (v / bound) * (plotW / 2);
+
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${h}`, role: 'img',
+    'aria-label': 'Net profit or loss for each player' });
+
+  for (let v = -bound; v <= bound + 0.001; v += step) {
+    const gx = x(v);
+    svg.append(sv('line', { x1: gx, x2: gx, y1: PAD_T - 8, y2: h - PAD_B,
+      stroke: v === 0 ? 'var(--ink-3)' : 'var(--line)', 'stroke-width': v === 0 ? 1.5 : 1 }));
+    const t = sv('text', { x: gx, y: h - PAD_B + 17, 'text-anchor': 'middle',
+      fill: 'var(--ink-3)', 'font-size': 11, 'font-family': 'var(--mono)' });
+    t.textContent = money(v);
+    svg.append(t);
+  }
+
+  rows.forEach((r, i) => {
+    const y = PAD_T + i * H_ROW;
+    const barH = 13, ry = y + (H_ROW - barH) / 2;
+    const zero = x(0), end = x(r.net);
+    const left = Math.min(zero, end), w = Math.max(Math.abs(end - zero), r.net === 0 ? 0 : 2);
+    const up = r.net >= 0;
+
+    const name = sv('text', { x: PAD_L - 12, y: ry + barH - 2, 'text-anchor': 'end',
+      fill: 'var(--ink-2)', 'font-size': 12.5, 'font-family': 'var(--sans)' });
+    name.textContent = r.player.name;
+    svg.append(name);
+
+    if (w > 0) {
+      svg.append(sv('rect', {
+        x: up ? zero : left, y: ry, width: w, height: barH,
+        rx: 4, ry: 4,
+        fill: up ? 'var(--up)' : 'var(--down)'
+      }));
+      // square off the end that touches the zero line
+      svg.append(sv('rect', {
+        x: up ? zero : end + w - 4, y: ry, width: Math.min(4, w), height: barH,
+        fill: up ? 'var(--up)' : 'var(--down)'
+      }));
+    }
+
+    const val = sv('text', {
+      x: up ? end + 8 : end - 8, y: ry + barH - 2,
+      'text-anchor': up ? 'start' : 'end',
+      fill: r.net > 0 ? 'var(--up)' : r.net < 0 ? 'var(--down)' : 'var(--flat)',
+      'font-size': 12, 'font-family': 'var(--mono)', 'font-weight': 600
+    });
+    val.textContent = signed(r.net);
+    svg.append(val);
+  });
+
+  const wrap = el('div', { class: 'chart-wrap' });
+  wrap.append(svg);
+  host.append(wrap);
+}
+
+/* Cumulative profit line for one player, with hover crosshair. */
+function drawCumulative(host, series, label) {
+  host.textContent = '';
+  if (series.length < 1) { host.append(emptyBlock('Nothing to plot yet', 'Needs at least one approved night.')); return; }
+
+  const W = 760, H = 230, PAD_T = 18, PAD_B = 32, PAD_L = 56, PAD_R = 18;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+
+  const pts = [{ date: null, value: 0 }].concat(series);
+  const vals = pts.map(p => p.value);
+  const lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  const step = niceStep(hi - lo || 20);
+  const yLo = Math.floor(lo / step) * step, yHi = Math.ceil(hi / step) * step;
+  const span = (yHi - yLo) || step;
+
+  const X = i => PAD_L + (pts.length === 1 ? plotW / 2 : (i / (pts.length - 1)) * plotW);
+  const Y = v => PAD_T + plotH - ((v - yLo) / span) * plotH;
+
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': label + ' cumulative profit over the season' });
+
+  for (let v = yLo; v <= yHi + 0.001; v += step) {
+    const gy = Y(v);
+    svg.append(sv('line', { x1: PAD_L, x2: W - PAD_R, y1: gy, y2: gy,
+      stroke: Math.abs(v) < 0.001 ? 'var(--ink-3)' : 'var(--line)',
+      'stroke-width': Math.abs(v) < 0.001 ? 1.5 : 1 }));
+    const t = sv('text', { x: PAD_L - 10, y: gy + 4, 'text-anchor': 'end',
+      fill: 'var(--ink-3)', 'font-size': 11, 'font-family': 'var(--mono)' });
+    t.textContent = money(v);
+    svg.append(t);
+  }
+
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.value).toFixed(1)).join(' ');
+  const area = line + ` L ${X(pts.length - 1).toFixed(1)} ${Y(0).toFixed(1)} L ${X(0).toFixed(1)} ${Y(0).toFixed(1)} Z`;
+
+  const last = pts[pts.length - 1].value;
+  const hue = last >= 0 ? 'var(--up)' : 'var(--down)';
+
+  const gid = 'g' + Math.random().toString(36).slice(2, 8);
+  const defs = sv('defs');
+  const grad = sv('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 });
+  const s1 = sv('stop', { offset: '0%', 'stop-color': hue, 'stop-opacity': .22 });
+  const s2 = sv('stop', { offset: '100%', 'stop-color': hue, 'stop-opacity': 0 });
+  grad.append(s1, s2); defs.append(grad); svg.append(defs);
+
+  svg.append(sv('path', { d: area, fill: 'url(#' + gid + ')', stroke: 'none' }));
+  svg.append(sv('path', { d: line, fill: 'none', stroke: hue, 'stroke-width': 2,
+    'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+
+  pts.forEach((p, i) => {
+    if (!i) return;
+    svg.append(sv('circle', { cx: X(i), cy: Y(p.value), r: i === pts.length - 1 ? 5 : 3.2,
+      fill: i === pts.length - 1 ? hue : 'var(--surface)', stroke: hue, 'stroke-width': 2 }));
+  });
+
+  // x labels: every night when there are few, otherwise first / middle / last
+  const marks = new Set([1, pts.length - 1]);
+  if (pts.length <= 7) { for (let i = 1; i < pts.length; i++) marks.add(i); }
+  else marks.add(Math.round((pts.length - 1) / 2));
+  marks.forEach(i => {
+    if (i < 1 || i > pts.length - 1) return;
+    const t = sv('text', { x: X(i), y: H - PAD_B + 18,
+      'text-anchor': i === 1 ? 'start' : i === pts.length - 1 ? 'end' : 'middle',
+      fill: 'var(--ink-3)', 'font-size': 11, 'font-family': 'var(--mono)' });
+    t.textContent = fmtDate(pts[i].date);
+    svg.append(t);
+  });
+
+  const cross = sv('line', { y1: PAD_T, y2: PAD_T + plotH, stroke: 'var(--ink-3)',
+    'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: 0 });
+  const dot = sv('circle', { r: 5.5, fill: hue, stroke: 'var(--bg)', 'stroke-width': 2, opacity: 0 });
+  svg.append(cross, dot);
+
+  const wrap = el('div', { class: 'chart-wrap' });
+  const tip = el('div', { class: 'tipbox' });
+  wrap.append(svg, tip);
+
+  const hit = sv('rect', { x: PAD_L, y: PAD_T, width: plotW, height: plotH, fill: 'transparent' });
+  svg.append(hit);
+
+  function move(ev) {
+    const box = svg.getBoundingClientRect();
+    const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - box.left) / box.width * W;
+    let best = 1, bd = Infinity;
+    for (let i = 1; i < pts.length; i++) {
+      const d = Math.abs(X(i) - px);
+      if (d < bd) { bd = d; best = i; }
+    }
+    const p = pts[best];
+    cross.setAttribute('x1', X(best)); cross.setAttribute('x2', X(best));
+    cross.setAttribute('opacity', 1);
+    dot.setAttribute('cx', X(best)); dot.setAttribute('cy', Y(p.value));
+    dot.setAttribute('opacity', 1);
+    tip.innerHTML = '';
+    tip.append(
+      el('div', { class: 't-d', text: fmtDate(p.date) }),
+      el('div', { class: 't-v ' + signClass(p.value), text: signed(p.value) + ' running' })
+    );
+    tip.style.left = (X(best) / W * 100) + '%';
+    tip.style.top = (Y(p.value) / H * box.height) + 'px';
+    tip.style.opacity = 1;
+  }
+  function leave() { cross.setAttribute('opacity', 0); dot.setAttribute('opacity', 0); tip.style.opacity = 0; }
+  svg.addEventListener('mousemove', move);
+  svg.addEventListener('mouseleave', leave);
+  svg.addEventListener('touchstart', move, { passive: true });
+  svg.addEventListener('touchmove', move, { passive: true });
+  svg.addEventListener('touchend', leave);
+
+  host.append(wrap);
+}
+
+function emptyBlock(big, small) {
+  return el('div', { class: 'empty' }, [
+    el('div', { class: 'big', text: big }),
+    small ? el('div', { text: small }) : null
+  ]);
+}
+
+/* ===================================================================
+   VIEW: STANDINGS
+   =================================================================== */
+const COLS = [
+  { key: 'name',    label: 'Player',  num: false },
+  { key: 'played',  label: 'Played',  num: true },
+  { key: 'moneyIn', label: 'In',      num: true },
+  { key: 'cashOut', label: 'Out',     num: true },
+  { key: 'net',     label: 'Net',     num: true },
+  { key: 'avg',     label: 'Avg/night', num: true },
+  { key: 'roi',     label: 'ROI',     num: true },
+  { key: 'best',    label: 'Best',    num: true },
+  { key: 'form',    label: 'Form',    num: false }
+];
+
+function sortVal(s, key) {
+  switch (key) {
+    case 'name': return s.player.name.toLowerCase();
+    case 'best': return s.best ? s.best.net : -Infinity;
+    case 'form': return s.net;
+    case 'roi':  return Number.isFinite(s.roi) ? s.roi : -Infinity;
+    default:     return s[key];
+  }
+}
+
+function renderStandings() {
+  const rows = leagueRows(state.season);
+  const { key, dir } = state.sort;
+  const sorted = rows.slice().sort((a, b) => {
+    const va = sortVal(a, key), vb = sortVal(b, key);
+    if (typeof va === 'string') return dir * va.localeCompare(vb);
+    return dir * ((va ?? 0) - (vb ?? 0));
+  });
+
+  const nights = approvedNights(state.season);
+  const potTotal = nights.reduce((t, n) => t + nightTotals(n).pot, 0);
+  const biggest = rows.reduce((b, r) => (r.best && (!b || r.best.net > b.net) ? { net: r.best.net, who: r.player.name } : b), null);
+  const leader = sorted.length ? rows[0] : null;
+
+  const tiles = $('#leagueTiles');
+  tiles.textContent = '';
+  tiles.append(
+    tile('Nights played', String(nights.length), nights.length ? 'Last played ' + fmtDate(nights[nights.length - 1].played_on) : 'None yet'),
+    tile('Money through the table', money(potTotal), 'Across ' + nights.length + ' night' + (nights.length === 1 ? '' : 's')),
+    tile('League leader', leader ? leader.player.name : '–', leader ? signed(leader.net) : 'No results yet', leader ? signClass(leader.net) : ''),
+    tile('Biggest single night', biggest ? signed(biggest.net) : '–', biggest ? biggest.who : 'No results yet', biggest ? 'pos' : ''),
+    tile('Players involved', String(rows.length), 'of ' + state.players.length + ' on the books')
+  );
+
+  const thead = $('#standings thead');
+  thead.textContent = '';
+  const tr = el('tr');
+  tr.append(el('th', { class: 'rank', text: '#' }));
+  for (const c of COLS) {
+    const th = el('th', {
+      class: 'sortable' + (c.num ? ' num' : ''),
+      role: 'button', tabindex: '0',
+      'aria-sort': key === c.key ? (dir === 1 ? 'ascending' : 'descending') : 'none',
+      onclick: () => toggleSort(c.key),
+      onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(c.key); } }
+    }, [c.label]);
+    if (key === c.key) th.append(el('span', { class: 'arrow', text: dir === 1 ? '▲' : '▼' }));
+    tr.append(th);
+  }
+  thead.append(tr);
+
+  const tbody = $('#standings tbody');
+  tbody.textContent = '';
+  if (!sorted.length) {
+    tbody.append(el('tr', {}, [el('td', { colspan: COLS.length + 1 }, [emptyBlock('No approved results for this season yet', 'Log a night, approve it in Admin, and the table fills in.')])]));
+  }
+  sorted.forEach(s => {
+    const place = rows.indexOf(s) + 1;
+    const tr = el('tr', { class: 'clickable', tabindex: '0', role: 'link',
+      onclick: () => go('player-' + s.player.slug),
+      onkeydown: e => { if (e.key === 'Enter') go('player-' + s.player.slug); } });
+    tr.append(el('td', { class: 'rank' + (place <= 3 ? ' medal' : ''), text: place }));
+    tr.append(el('td', {}, [el('div', { class: 'who' }, [avatar(s.player), el('span', { text: s.player.name })])]));
+    tr.append(el('td', { class: 'num', text: s.played }));
+    tr.append(el('td', { class: 'num', text: money(s.moneyIn) }));
+    tr.append(el('td', { class: 'num', text: money(s.cashOut) }));
+    tr.append(el('td', { class: 'num ' + signClass(s.net), text: signed(s.net) }));
+    tr.append(el('td', { class: 'num ' + signClass(s.avg), text: signed(s.avg) }));
+    tr.append(el('td', { class: 'num ' + signClass(s.roi), text: pct(s.roi) }));
+    tr.append(el('td', { class: 'num ' + (s.best ? signClass(s.best.net) : ''), text: s.best ? signed(s.best.net) : '–' }));
+    tr.append(el('td', {}, [formStrip(s.history)]));
+    tbody.append(tr);
+  });
+
+  $('#standingsMeta').textContent = nights.length
+    ? nights.length + ' night' + (nights.length === 1 ? '' : 's') + ' · tap a row for the full profile'
+    : 'Nothing approved yet';
+
+  drawNetChart($('#netChart'), rows.slice().sort((a, b) => b.net - a.net));
+}
+
+function tile(k, v, n, cls) {
+  return el('div', { class: 'tile' }, [
+    el('div', { class: 'k', text: k }),
+    el('div', { class: 'v ' + (cls || ''), text: v }),
+    el('div', { class: 'n', text: n })
+  ]);
+}
+
+function formStrip(history, limit = 6) {
+  const last = history.slice(-limit);
+  const row = el('div', { class: 'form-row', title: last.map(h => fmtDate(h.date) + ' ' + signed(h.net)).join('  ·  ') });
+  if (!last.length) row.append(el('span', { class: 'muted', text: '–' }));
+  last.forEach(h => row.append(el('span', { class: 'chip ' + (h.net > 0 ? 'w' : h.net < 0 ? 'l' : 'e') })));
+  return row;
+}
+
+function toggleSort(key) {
+  if (state.sort.key === key) state.sort.dir *= -1;
+  else state.sort = { key, dir: key === 'name' ? 1 : -1 };
+  renderStandings();
+}
+
+/* ===================================================================
+   VIEW: PLAYERS + PROFILE
+   =================================================================== */
+function renderPlayers() {
+  const { stats } = computeStats(state.season);
+  const grid = $('#playerGrid');
+  grid.textContent = '';
+  const list = state.players.slice().sort((a, b) => {
+    const na = stats.get(a.id)?.net ?? 0, nb = stats.get(b.id)?.net ?? 0;
+    return nb - na || a.name.localeCompare(b.name);
+  });
+  list.forEach(p => {
+    const s = stats.get(p.id);
+    grid.append(el('div', {
+      class: 'pcard', role: 'link', tabindex: '0',
+      onclick: () => go('player-' + p.slug),
+      onkeydown: e => { if (e.key === 'Enter') go('player-' + p.slug); }
+    }, [
+      avatar(p, 'lg'),
+      el('div', { class: 'nm', text: p.name }),
+      el('div', { class: 'net ' + signClass(s.net), text: s.played ? signed(s.net) : '–' }),
+      el('div', { class: 'meta', text: s.played ? s.played + ' night' + (s.played === 1 ? '' : 's') + ' · ' + pct(s.roi) + ' ROI' : 'No nights yet' })
+    ]));
+  });
+  $('#playersMeta').textContent = state.players.length + ' on the books · season ' + state.season;
+}
+
+function renderProfile(slug) {
+  const p = state.players.find(x => x.slug === slug);
+  const host = $('#profileBody');
+  host.textContent = '';
+  if (!p) { host.append(emptyBlock('Player not found', 'Pick someone from the Players tab.')); return; }
+
+  const { stats } = computeStats(state.season);
+  const rows = leagueRows(state.season);
+  const s = stats.get(p.id);
+  const place = rows.findIndex(r => r.player.id === p.id) + 1;
+
+  const headTiles = el('div', { class: 'tiles' }, [
+    tile('Net', s.played ? signed(s.net) : '–', s.played ? 'Season ' + state.season : 'No nights yet', signClass(s.net)),
+    tile('Nights', String(s.played), s.wins + 'W · ' + s.losses + 'L' + (s.evens ? ' · ' + s.evens + 'E' : '')),
+    tile('Average per night', s.played ? signed(s.avg) : '–', 'Across ' + s.played + ' night' + (s.played === 1 ? '' : 's'), signClass(s.avg)),
+    tile('ROI', pct(s.roi), money(s.moneyIn) + ' in · ' + money(s.cashOut) + ' out', signClass(s.roi)),
+    tile('Best night', s.best ? signed(s.best.net) : '–', s.best ? fmtDate(s.best.date) : '–', s.best ? signClass(s.best.net) : ''),
+    tile('Worst night', s.worst ? signed(s.worst.net) : '–', s.worst ? fmtDate(s.worst.date) : '–', s.worst ? signClass(s.worst.net) : '')
+  ]);
+
+  const chartPanel = el('div', { class: 'panel' }, [
+    el('div', { class: 'panel-head' }, [
+      el('h3', { text: 'Running profit' }),
+      el('span', { class: 'muted', text: 'Cumulative, night by night' })
+    ]),
+    el('div', { class: 'panel-body' }, [el('div', { id: 'profChart' })])
+  ]);
+
+  const histBody = el('tbody');
+  s.history.slice().reverse().forEach(h => {
+    histBody.append(el('tr', {}, [
+      el('td', { text: fmtDate(h.date) }),
+      el('td', { class: 'num', text: money(h.moneyIn) }),
+      el('td', { class: 'num', text: h.rebuys || '–' }),
+      el('td', { class: 'num', text: money(h.cashOut) }),
+      el('td', { class: 'num ' + signClass(h.net), text: signed(h.net) }),
+      el('td', { text: h.host || '–' })
+    ]));
+  });
+  if (!s.history.length) {
+    histBody.append(el('tr', {}, [el('td', { colspan: 6 }, [emptyBlock('No nights logged', 'Results show here once approved.')])]));
+  }
+
+  const histPanel = el('div', { class: 'panel' }, [
+    el('div', { class: 'panel-head' }, [
+      el('h3', { text: 'Night by night' }),
+      el('span', { class: 'muted', text: s.hosted + ' hosted' })
+    ]),
+    el('div', { class: 'scroll-x' }, [
+      el('table', {}, [
+        el('thead', {}, [el('tr', {}, [
+          el('th', { text: 'Date' }),
+          el('th', { class: 'num', text: 'In' }),
+          el('th', { class: 'num', text: 'Rebuys' }),
+          el('th', { class: 'num', text: 'Out' }),
+          el('th', { class: 'num', text: 'Net' }),
+          el('th', { text: 'Host' })
+        ])]),
+        histBody
+      ])
+    ])
+  ]);
+
+  host.append(
+    el('div', { class: 'profile-head' }, [
+      avatar(p, 'xl'),
+      el('div', { class: 'idy' }, [
+        el('div', { class: 'eyebrow', text: place ? 'Ranked #' + place + ' of ' + rows.length : 'Unranked this season' }),
+        el('div', { class: 'nm', text: p.name }),
+        el('div', {}, [formStrip(s.history, 10)])
+      ])
+    ]),
+    el('div', { style: 'height:4px' }),
+    headTiles,
+    chartPanel,
+    histPanel
+  );
+
+  drawCumulative($('#profChart'), s.cumulative, p.name);
+}
+
+/* ===================================================================
+   VIEW: NIGHTS
+   =================================================================== */
+function renderNights() {
+  const list = $('#nightsList');
+  list.textContent = '';
+  const byId = new Map(state.players.map(p => [p.id, p]));
+  const nights = state.nights
+    .filter(n => Number(n.season) === Number(state.season))
+    .slice()
+    .sort((a, b) => (a.played_on > b.played_on ? -1 : a.played_on < b.played_on ? 1 : b.id - a.id));
+
+  const approved = nights.filter(n => n.status === 'approved').length;
+  $('#nightsMeta').textContent = nights.length
+    ? nights.length + ' logged · ' + approved + ' approved · season ' + state.season
+    : 'Season ' + state.season;
+
+  if (!nights.length) {
+    list.append(el('div', { class: 'panel' }, [el('div', { class: 'panel-body' }, [
+      emptyBlock('No nights for season ' + state.season, 'Use "Log a night" after your next game.')
+    ])]));
+    return;
+  }
+
+  nights.forEach(n => list.append(nightCard(n, byId, false)));
+}
+
+function nightCard(n, byId, withActions) {
+  const t = nightTotals(n);
+  const rows = (n.entries || []).slice().sort((a, b) =>
+    (Number(b.cash_out) - Number(b.money_in)) - (Number(a.cash_out) - Number(a.money_in)));
+
+  const body = el('tbody');
+  rows.forEach(e => {
+    const pl = byId.get(e.player_id);
+    const net = Number(e.cash_out) - Number(e.money_in);
+    body.append(el('tr', {}, [
+      el('td', {}, [el('div', { class: 'who' }, [pl ? avatar(pl) : null, el('span', { text: pl ? pl.name : 'Unknown' })])]),
+      el('td', { class: 'num', text: money(e.money_in) }),
+      el('td', { class: 'num', text: e.rebuys || '–' }),
+      el('td', { class: 'num', text: money(e.cash_out) }),
+      el('td', { class: 'num ' + signClass(net), text: signed(net) })
+    ]));
+  });
+
+  const badgeCls = n.status === 'approved' ? 'appr' : n.status === 'rejected' ? 'rej' : 'pend';
+  const actions = el('div', { class: 'btn-row' });
+  if (withActions) {
+    if (n.status !== 'approved') actions.append(el('button', { class: 'btn ok', text: 'Approve', onclick: () => decide(n.id, 'approved') }));
+    if (n.status !== 'rejected') actions.append(el('button', { class: 'btn no', text: 'Reject', onclick: () => decide(n.id, 'rejected') }));
+    actions.append(el('button', { class: 'btn', text: 'Delete', onclick: () => removeNight(n.id) }));
+  }
+
+  return el('div', { class: 'pending' }, [
+    el('div', { class: 'panel-head' }, [
+      el('div', {}, [
+        el('h3', { text: fmtDateLong(n.played_on) }),
+        el('div', { class: 'muted' }, [
+          'Pot ' + money(t.pot) + ' · ' + t.count + ' players' +
+          (n.host_id && byId.get(n.host_id) ? ' · hosted by ' + byId.get(n.host_id).name : '') +
+          (n.submitted_by ? ' · logged by ' + n.submitted_by : '')
+        ])
+      ]),
+      el('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, [
+        Math.abs(t.diff) > 0.009 ? el('span', { class: 'badge rej', text: 'Off by ' + money(t.diff) }) : null,
+        el('span', { class: 'badge ' + badgeCls, text: n.status }),
+        withActions ? actions : null
+      ])
+    ]),
+    el('div', { class: 'scroll-x' }, [
+      el('table', {}, [
+        el('thead', {}, [el('tr', {}, [
+          el('th', { text: 'Player' }),
+          el('th', { class: 'num', text: 'In' }),
+          el('th', { class: 'num', text: 'Rebuys' }),
+          el('th', { class: 'num', text: 'Out' }),
+          el('th', { class: 'num', text: 'Net' })
+        ])]),
+        body
+      ])
+    ])
+  ]);
+}
+
+/* ===================================================================
+   VIEW: SEAT DRAW
+   =================================================================== */
+function seatPositions(n, narrow) {
+  // Seats ring the rail, in the same 100x72 space the table is drawn in.
+  // Seat 1 sits bottom-centre and they run clockwise from there.
+  const rx = narrow ? 37 : 41, ry = narrow ? 27 : 29;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI / 2) - (i / n) * Math.PI * 2;
+    out.push({
+      left: 50 + rx * Math.cos(a),          // % of width  (viewBox width 100)
+      top: (36 + ry * Math.sin(a)) / 72 * 100 // % of height (viewBox height 72)
+    });
+  }
+  return out;
+}
+
+function renderDrawTable() {
+  const stage = $('#stage');
+  stage.textContent = '';
+  const n = state.draw.count;
+  const narrow = stage.clientWidth > 0 && stage.clientWidth < 470;
+  stage.classList.toggle('narrow', narrow);
+  const pos = seatPositions(n, narrow);
+
+  const svg = sv('svg', { viewBox: '0 0 100 72', preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
+  // rail
+  svg.append(sv('ellipse', { cx: 50, cy: 36.6, rx: 38, ry: 25.5, fill: '#0e141d' }));
+  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 38, ry: 25.5, fill: '#1d2735' }));
+  // felt
+  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 34, ry: 21.8, fill: '#13302a' }));
+  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 34, ry: 21.8, fill: 'none',
+    stroke: 'rgba(255,255,255,.07)', 'stroke-width': .5 }));
+  // betting line
+  svg.append(sv('ellipse', { cx: 50, cy: 36, rx: 24, ry: 14, fill: 'none',
+    stroke: 'rgba(255,255,255,.08)', 'stroke-width': .4, 'stroke-dasharray': '1.6 1.6' }));
+  const mark = sv('text', { x: 50, y: 37.6, 'text-anchor': 'middle',
+    fill: 'rgba(255,255,255,.14)', 'font-size': 5.5, 'font-family': 'Archivo, sans-serif', 'font-weight': 700,
+    'letter-spacing': .4 });
+  mark.textContent = 'POKER LEAGUE';
+  svg.append(mark);
+  stage.append(svg);
+
+  pos.forEach((pt, i) => {
+    const name = state.draw.seats[i];
+    const lbl = el('div', {
+      class: 'seat-label' + (state.draw.dealer === i ? ' dealer' : '') + (state.draw.spinning ? ' spinning' : ''),
+      style: `left:${pt.left.toFixed(2)}%;top:${pt.top.toFixed(2)}%`
+    }, [
+      el('div', { class: 'sn', text: 'SEAT ' + (i + 1) }),
+      el('div', { class: 'pn', text: name || '–' })
+    ]);
+    if (state.draw.dealer === i) lbl.append(el('div', { class: 'dbtn', text: 'D', title: 'Dealer button' }));
+    stage.append(lbl);
+  });
+}
+
+function renderPickList() {
+  const list = $('#pickList');
+  list.textContent = '';
+  state.players.forEach(p => {
+    const on = state.draw.picked.has(p.id);
+    const label = el('label', { class: 'pick' + (on ? ' on' : '') });
+    const box = el('input', { type: 'checkbox', checked: on });
+    box.addEventListener('change', () => {
+      if (box.checked) state.draw.picked.add(p.id); else state.draw.picked.delete(p.id);
+      renderPickList();
+      updateDrawNotice();
+    });
+    label.append(box, el('span', { text: p.name }));
+    list.append(label);
+  });
+  $('#pickCount').textContent = '— ' + state.draw.picked.size + ' selected, ' + state.draw.count + ' seats';
+}
+
+function updateDrawNotice() {
+  const host = $('#drawNotice');
+  host.textContent = '';
+  const picked = state.draw.picked.size, seats = state.draw.count;
+  if (picked && picked !== seats) {
+    host.append(el('div', { class: 'notice' }, [
+      el('span', {}, [el('strong', { text: picked + ' selected for ' + seats + ' seats.' }),
+        ' ' + (picked > seats ? 'Spinning will draw ' + seats + ' of them at random and the rest sit out.'
+                              : 'Add ' + (seats - picked) + ' more, or drop the seat count to ' + picked + '.')])
+    ]));
+  }
+  $('#pickCount').textContent = '— ' + picked + ' selected, ' + seats + ' seats';
+}
+
+function spinSeats() {
+  if (state.draw.spinning) return;
+  const pool = state.players.filter(p => state.draw.picked.has(p.id)).map(p => p.name);
+  const seats = state.draw.count;
+  if (pool.length < seats) {
+    $('#drawNotice').textContent = '';
+    $('#drawNotice').append(el('div', { class: 'notice bad' }, [
+      el('span', {}, [el('strong', { text: 'Not enough players picked.' }),
+        ' Tick at least ' + seats + ' names, or lower the seat count.'])
+    ]));
+    return;
+  }
+
+  // Fisher–Yates, then take the first `seats`
+  const shuffled = pool.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const final = shuffled.slice(0, seats);
+  const dealer = Math.floor(Math.random() * seats);
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced) {
+    state.draw.seats = final;
+    state.draw.dealer = dealer;
+    renderDrawTable();
+    return;
+  }
+
+  state.draw.spinning = true;
+  $('#spinBtn').disabled = true;
+  const start = performance.now();
+  const DURATION = 2400;
+
+  function frame(now) {
+    const t = Math.min(1, (now - start) / DURATION);
+    // ease out: shuffles slow down as it settles
+    const settleCount = Math.floor(seats * Math.pow(t, 2.4));
+    const scratch = final.slice();
+    for (let i = settleCount; i < seats; i++) {
+      scratch[i] = pool[Math.floor(Math.random() * pool.length)];
+    }
+    state.draw.seats = scratch;
+    state.draw.dealer = t < 0.85 ? Math.floor(Math.random() * seats) : dealer;
+    renderDrawTable();
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      state.draw.seats = final;
+      state.draw.dealer = dealer;
+      state.draw.spinning = false;
+      $('#spinBtn').disabled = false;
+      renderDrawTable();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ===================================================================
+   VIEW: LOG A NIGHT
+   =================================================================== */
+function renderLogForm() {
+  const hostSel = $('#logHost');
+  hostSel.textContent = '';
+  hostSel.append(el('option', { value: '', text: '—' }));
+  state.players.forEach(p => hostSel.append(el('option', { value: p.id, text: p.name })));
+
+  const thead = $('#entryGrid thead');
+  thead.textContent = '';
+  thead.append(el('tr', {}, [
+    el('th', { text: 'Played' }),
+    el('th', { text: 'Player' }),
+    el('th', { class: 'num', text: 'Money in' }),
+    el('th', { class: 'num', text: 'Rebuys' }),
+    el('th', { class: 'num', text: 'Cash out' }),
+    el('th', { class: 'num', text: 'Net' })
+  ]));
+
+  const tbody = $('#entryGrid tbody');
+  tbody.textContent = '';
+  state.logRows = new Map();
+
+  state.players.forEach(p => {
+    const row = { on: false, moneyIn: 0, rebuys: 0, cashOut: 0 };
+    const tr = el('tr', { class: 'off' });
+
+    const chk = el('input', { type: 'checkbox', id: 'play-' + p.slug, 'aria-label': 'Did ' + p.name + ' play?' });
+    const inIn  = el('input', { type: 'number', min: '0', step: '0.5', value: '', placeholder: '0', id: 'in-' + p.slug, 'aria-label': p.name + ' money in' });
+    const inRb  = el('input', { type: 'number', min: '0', step: '1', value: '', placeholder: '0', class: 'small', id: 'rb-' + p.slug, 'aria-label': p.name + ' rebuys' });
+    const inOut = el('input', { type: 'number', min: '0', step: '0.5', value: '', placeholder: '0', id: 'out-' + p.slug, 'aria-label': p.name + ' cash out' });
+    const netCell = el('td', { class: 'num zero', text: '–' });
+
+    function sync() {
+      row.on = chk.checked;
+      row.moneyIn = Number(inIn.value) || 0;
+      row.rebuys = Number(inRb.value) || 0;
+      row.cashOut = Number(inOut.value) || 0;
+      tr.classList.toggle('off', !row.on);
+      const net = row.cashOut - row.moneyIn;
+      netCell.textContent = row.on ? signed(net) : '–';
+      netCell.className = 'num ' + (row.on ? signClass(net) : 'zero');
+      updateBalance();
+    }
+    [chk, inIn, inRb, inOut].forEach(i => i.addEventListener('input', sync));
+    chk.addEventListener('change', () => { if (chk.checked && !inIn.value) inIn.focus(); sync(); });
+
+    tr.append(
+      el('td', {}, [chk]),
+      el('td', {}, [el('div', { class: 'who' }, [avatar(p), el('span', { text: p.name })])]),
+      el('td', { class: 'num' }, [inIn]),
+      el('td', { class: 'num' }, [inRb]),
+      el('td', { class: 'num' }, [inOut]),
+      netCell
+    );
+    tbody.append(tr);
+    state.logRows.set(p.id, row);
+  });
+
+  $('#logDate').value = $('#logDate').value || todayISO();
+  updateBalance();
+}
+
+function updateBalance() {
+  const rows = Array.from(state.logRows.values()).filter(r => r.on);
+  const pot = rows.reduce((t, r) => t + r.moneyIn, 0);
+  const paid = rows.reduce((t, r) => t + r.cashOut, 0);
+  const diff = paid - pot;
+  const bar = $('#balanceBar');
+  bar.textContent = '';
+  bar.append(
+    bal('Players', String(rows.length)),
+    bal('Pot (total in)', money(pot)),
+    bal('Total cashed out', money(paid)),
+    bal('Difference', (diff === 0 ? money(0) : signed(diff)), Math.abs(diff) < 0.009 ? 'pos' : 'neg')
+  );
+  if (Math.abs(diff) > 0.009 && rows.length) {
+    bar.append(el('span', { class: 'muted', style: 'flex:1 1 220px;min-width:0',
+      text: diff > 0 ? 'More cashed out than went in — someone’s buy-in is missing.'
+                     : 'Less cashed out than went in — someone’s winnings are missing.' }));
+  }
+}
+function bal(k, v, cls) {
+  return el('div', { class: 'b' }, [
+    el('div', { class: 'bk', text: k }),
+    el('div', { class: 'bv ' + (cls || ''), text: v })
+  ]);
+}
+
+async function submitNight() {
+  const notice = $('#logNotice');
+  notice.textContent = '';
+  const date = $('#logDate').value;
+  const hostId = $('#logHost').value;
+  const by = $('#logBy').value.trim();
+  const rows = Array.from(state.logRows.entries()).filter(([, r]) => r.on);
+
+  const problems = [];
+  if (!date) problems.push('Pick the date the game was played.');
+  if (!by) problems.push('Put your name in so Archit knows who logged it.');
+  if (rows.length < 2) problems.push('Tick at least two players.');
+  const pot = rows.reduce((t, [, r]) => t + r.moneyIn, 0);
+  const paid = rows.reduce((t, [, r]) => t + r.cashOut, 0);
+  if (rows.length >= 2 && Math.abs(paid - pot) > 0.009) {
+    problems.push('Money in and cash out don’t match — they’re off by ' + money(paid - pot) + '.');
+  }
+  if (rows.some(([, r]) => r.moneyIn <= 0)) problems.push('Everyone who played needs a money-in figure.');
+
+  if (problems.length) {
+    notice.append(el('div', { class: 'notice bad' }, [
+      el('div', {}, [el('strong', { text: 'Not sent yet.' }),
+        el('ul', { style: 'margin:6px 0 0;padding-left:18px' }, problems.map(p => el('li', { text: p })))])
+    ]));
+    return;
+  }
+
+  const btn = $('#submitNight');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await store.submitNight({
+      night: {
+        season: Number(state.season), played_on: date,
+        host_id: hostId ? Number(hostId) : null, submitted_by: by
+      },
+      entries: rows.map(([pid, r]) => ({
+        player_id: Number(pid), money_in: r.moneyIn, rebuys: r.rebuys, cash_out: r.cashOut
+      }))
+    });
+    await refresh();
+    notice.textContent = '';
+    notice.append(el('div', { class: 'notice good' }, [
+      el('span', {}, [el('strong', { text: 'Sent.' }), ' ' + fmtDateLong(date) +
+        ' is waiting for Archit to approve. It won’t show in the standings until then.'])
+    ]));
+    renderLogForm();
+  } catch (err) {
+    notice.append(el('div', { class: 'notice bad' }, [
+      el('span', {}, [el('strong', { text: 'Couldn’t send it.' }), ' ' + err.message])
+    ]));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submit for approval';
+  }
+}
+
+/* ===================================================================
+   VIEW: ADMIN
+   =================================================================== */
+function renderAdmin() {
+  const host = $('#adminBody');
+  host.textContent = '';
+  const signedIn = Boolean(state.token) || !LIVE;
+
+  if (!signedIn) {
+    const form = el('div', { class: 'signin' });
+    const email = el('input', { type: 'email', id: 'adminEmail', placeholder: 'you@example.com', autocomplete: 'username' });
+    const pass = el('input', { type: 'password', id: 'adminPass', placeholder: 'Password', autocomplete: 'current-password' });
+    const msg = el('div');
+    const doSignIn = async () => {
+      msg.textContent = '';
+      try {
+        const data = await api.signIn(email.value.trim(), pass.value);
+        state.token = data.access_token;
+        state.adminEmail = data.user?.email || email.value.trim();
+        try { sessionStorage.setItem('pokerleague.token', state.token); } catch (e) {}
+        await refresh();
+        renderAdmin();
+      } catch (err) {
+        msg.append(el('div', { class: 'notice bad' }, [el('span', { text: err.message })]));
+      }
+    };
+    pass.addEventListener('keydown', e => { if (e.key === 'Enter') doSignIn(); });
+    form.append(
+      el('div', { class: 'field' }, [el('label', { for: 'adminEmail', text: 'Email' }), email]),
+      el('div', { class: 'field' }, [el('label', { for: 'adminPass', text: 'Password' }), pass]),
+      el('button', { class: 'btn primary', text: 'Sign in', onclick: doSignIn }),
+      msg
+    );
+    host.append(el('div', { class: 'panel' }, [
+      el('div', { class: 'panel-head' }, [el('h3', { text: 'Sign in to approve results' })]),
+      el('div', { class: 'panel-body' }, [form])
+    ]));
+    $('#adminMeta').textContent = 'Signed out';
+    return;
+  }
+
+  const byId = new Map(state.players.map(p => [p.id, p]));
+  const pending = state.nights.filter(n => n.status === 'pending')
+    .sort((a, b) => (a.played_on > b.played_on ? -1 : 1));
+  const decided = state.nights.filter(n => n.status !== 'pending')
+    .sort((a, b) => (a.played_on > b.played_on ? -1 : 1));
+
+  host.append(el('div', { class: 'head', style: 'margin-bottom:4px' }, [
+    el('h3', { text: 'Waiting for approval' }),
+    LIVE ? el('button', { class: 'btn', text: 'Sign out', onclick: signOut }) : null
+  ]));
+
+  if (!pending.length) {
+    host.append(el('div', { class: 'panel' }, [el('div', { class: 'panel-body' }, [
+      emptyBlock('Nothing waiting', 'Submitted nights land here for you to approve.')
+    ])]));
+  } else {
+    pending.forEach(n => host.append(nightCard(n, byId, true)));
+  }
+
+  host.append(el('div', { style: 'height:12px' }));
+  host.append(el('h3', { text: 'Already decided', style: 'margin-bottom:4px' }));
+  if (!decided.length) {
+    host.append(el('div', { class: 'panel' }, [el('div', { class: 'panel-body' }, [emptyBlock('Nothing yet')])]));
+  } else {
+    decided.forEach(n => host.append(nightCard(n, byId, true)));
+  }
+
+  $('#adminMeta').textContent = LIVE
+    ? 'Signed in as ' + (state.adminEmail || 'admin')
+    : 'Demo mode — no sign-in needed';
+}
+
+function signOut() {
+  state.token = null; state.adminEmail = null;
+  try { sessionStorage.removeItem('pokerleague.token'); } catch (e) {}
+  renderAdmin();
+}
+
+async function decide(id, status) {
+  try { await store.decide(id, status); await refresh(); }
+  catch (err) { alertish('Couldn’t update that night: ' + err.message); }
+}
+async function removeNight(id) {
+  try { await store.remove(id); await refresh(); }
+  catch (err) { alertish('Couldn’t delete that night: ' + err.message); }
+}
+function alertish(text) {
+  const host = $('#adminBody');
+  host.prepend(el('div', { class: 'notice bad', text }));
+}
+
+/* ===================================================================
+   ROUTING + BOOT
+   =================================================================== */
+const VIEWS = ['table', 'players', 'profile', 'nights', 'draw', 'log', 'admin'];
+
+function go(token) {
+  if (location.hash.slice(1) === token) route();
+  else location.hash = token;
+}
+
+function route() {
+  const raw = location.hash.slice(1) || 'table';
+  let view = raw, slug = null;
+  if (raw.startsWith('player-')) { view = 'profile'; slug = raw.slice(7); }
+  if (!VIEWS.includes(view)) view = 'table';
+
+  state.view = view;
+  state.profileSlug = slug;
+
+  VIEWS.forEach(v => { const n = $('#view-' + v); if (n) n.hidden = v !== view; });
+  $$('#tabs button').forEach(b => {
+    const active = b.dataset.view === view || (view === 'profile' && b.dataset.view === 'players');
+    if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+
+  if (view === 'table') renderStandings();
+  if (view === 'players') renderPlayers();
+  if (view === 'profile') renderProfile(slug);
+  if (view === 'nights') renderNights();
+  if (view === 'draw') { renderPickList(); renderDrawTable(); updateDrawNotice(); }
+  if (view === 'log') renderLogForm();
+  if (view === 'admin') renderAdmin();
+
+  window.scrollTo(0, 0);
+}
+
+function renderChrome() {
+  const seasons = Array.from(new Set(state.nights.map(n => Number(n.season)).concat([CONFIG.currentSeason])))
+    .sort((a, b) => b - a);
+  const sel = $('#seasonSel');
+  sel.textContent = '';
+  seasons.forEach(s => sel.append(el('option', { value: s, text: 'Season ' + s, selected: s === Number(state.season) })));
+  $('#brandSub').textContent = 'Season ' + state.season;
+
+  const pend = state.nights.filter(n => n.status === 'pending').length;
+  const badge = $('#pendCount');
+  badge.textContent = pend;
+  badge.hidden = pend === 0;
+
+  const notice = $('#modeNotice');
+  notice.textContent = '';
+  if (!LIVE) {
+    notice.append(el('div', { class: 'notice', style: 'margin-bottom:20px' }, [
+      el('span', {}, [
+        el('strong', { text: 'Demo data.' }),
+        ' These results are made up so you can see how it works. Paste your Supabase URL and key into ',
+        el('code', { style: 'font-family:var(--mono);font-size:12.5px;color:var(--accent)', text: 'CONFIG' }),
+        ' at the top of index.html to switch to real, shared results.'
+      ])
+    ]));
+  }
+
+  const approved = approvedNights(state.season).length;
+  $('#footMeta').textContent = state.players.length + ' players · ' + approved + ' approved night' + (approved === 1 ? '' : 's');
+}
+
+async function refresh() {
+  const data = await store.load();
+  const firstLoad = state.players.length === 0;
+  state.players = data.players.map(p => ({ ...p, slug: p.slug || slugify(p.name) }));
+  state.nights = data.nights;
+  // everyone is in the draw by default; keep any hand-picked selection after that
+  if (firstLoad) state.players.forEach(p => state.draw.picked.add(p.id));
+  renderChrome();
+  route();
+}
+
+function boot() {
+  try {
+    const t = sessionStorage.getItem('pokerleague.token');
+    if (t) state.token = t;
+  } catch (e) {}
+
+  const seatSel = $('#seatCount');
+  for (let i = 2; i <= 15; i++) {
+    seatSel.append(el('option', { value: i, text: i + ' players', selected: i === state.draw.count }));
+  }
+  seatSel.addEventListener('change', () => {
+    state.draw.count = Number(seatSel.value);
+    state.draw.seats = []; state.draw.dealer = -1;
+    renderDrawTable(); updateDrawNotice();
+  });
+
+  $('#spinBtn').addEventListener('click', spinSeats);
+  $('#clearDraw').addEventListener('click', () => {
+    state.draw.seats = []; state.draw.dealer = -1; renderDrawTable();
+  });
+  $('#seasonSel').addEventListener('change', e => {
+    state.season = Number(e.target.value);
+    $('#brandSub').textContent = 'Season ' + state.season;
+    route();
+  });
+  $$('#tabs button').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
+  $('#profileBack').addEventListener('click', () => go('players'));
+  $('#submitNight').addEventListener('click', submitNight);
+  $('#resetLog').addEventListener('click', () => { $('#logBy').value = ''; $('#logNotice').textContent = ''; renderLogForm(); });
+  window.addEventListener('hashchange', route);
+
+  let rt;
+  window.addEventListener('resize', () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { if (state.view === 'draw' && !state.draw.spinning) renderDrawTable(); }, 150);
+  });
+
+  refresh().catch(err => {
+    $('#modeNotice').append(el('div', { class: 'notice bad' }, [
+      el('span', {}, [el('strong', { text: 'Couldn’t load the results.' }), ' ' + err.message])
+    ]));
+  });
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>
