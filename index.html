@@ -38,7 +38,7 @@
 }
 /* Garamond's default figures are old-style, which stagger in a column.
    Force lining, tabular figures anywhere numbers line up. */
-.num,.tile .v,.pcard .net,.balance .bv,.seat-label .sn,
+.num,.tile .v,.fc-stat b,.balance .bv,.seat-label .sn,
 input[type=number],table td,table th{
   font-variant-numeric:lining-nums tabular-nums;
   font-feature-settings:"lnum" 1,"tnum" 1;
@@ -191,16 +191,85 @@ td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .av.xl{width:96px;height:96px;font-size:34px;border-radius:16px}
 
 /* ---------- player grid ---------- */
-.grid-players{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
-.pcard{
-  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-  padding:16px;display:flex;flex-direction:column;align-items:center;gap:9px;
-  cursor:pointer;text-align:center;transition:border-color .15s,transform .15s;
+/* ---------- player cards ---------- */
+/* Everything inside a card is sized in em, so one width variable scales it. */
+.fc{
+  --cw:174px;
+  width:var(--cw);font-size:calc(var(--cw)/14.5);
+  aspect-ratio:1/1.46;border-radius:.9em;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;cursor:pointer;user-select:none;
+  box-shadow:0 .6em 1.6em rgba(0,0,0,.55);
+  border:.09em solid rgba(255,255,255,.22);
 }
-.pcard:hover{border-color:var(--surface-3);transform:translateY(-2px)}
-.pcard .nm{font-weight:600;font-size:15px}
-.pcard .net{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.02em}
-.pcard .meta{font-size:11.5px;color:var(--ink-3)}
+.fc.big{--cw:260px;cursor:default}
+.fc::after{  /* glass sweep */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(118deg,transparent 38%,rgba(255,255,255,.17) 47%,transparent 56%);
+}
+.fc-gold   {background:linear-gradient(160deg,#f6d87a 0%,#d9a93c 38%,#8c6414 100%)}
+.fc-silver {background:linear-gradient(160deg,#e3e8ef 0%,#a9b3c1 38%,#5d6775 100%)}
+.fc-bronze {background:linear-gradient(160deg,#e3b08a 0%,#b5753f 38%,#6d4120 100%)}
+.fc-none   {background:linear-gradient(160deg,#39434f 0%,#262e39 38%,#161c24 100%)}
+
+.fc-top{position:relative;height:56%;overflow:hidden}
+.fc-photo{width:100%;height:100%;object-fit:cover;object-position:top center}
+.fc-initials{
+  width:100%;height:100%;display:grid;place-items:center;
+  font-size:3.4em;font-weight:700;color:rgba(0,0,0,.3);
+}
+.fc-top::after{  /* fade the photo into the card */
+  content:"";position:absolute;inset:auto 0 0;height:45%;
+  background:linear-gradient(to bottom,transparent,rgba(0,0,0,.55));
+}
+.fc-top::before{   /* scrim so the rating reads over any photo */
+  content:"";position:absolute;inset:0 auto auto 0;width:62%;height:50%;z-index:1;
+  background:radial-gradient(ellipse at top left,rgba(0,0,0,.62),transparent 72%);
+}
+.fc-badge{
+  position:absolute;top:.6em;left:.8em;z-index:2;line-height:1;
+  display:flex;flex-direction:column;align-items:center;gap:.15em;
+  text-shadow:0 .1em .3em rgba(0,0,0,.85);
+}
+.fc-ovr{font-size:2.5em;font-weight:700;letter-spacing:-.04em;color:#fff}
+.fc-pos{font-size:.72em;font-weight:700;letter-spacing:.16em;color:rgba(255,255,255,.8)}
+
+.fc-name{
+  text-align:center;font-weight:700;font-size:1.35em;letter-spacing:.04em;
+  color:#15100a;padding:.25em .4em .15em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.fc-none .fc-name{color:#e9eff7}
+.fc-role{
+  text-align:center;font-size:.86em;letter-spacing:.17em;font-weight:700;
+  color:rgba(0,0,0,.55);margin-top:-.2em;
+}
+.fc-none .fc-role{color:var(--ink-3)}
+
+.fc-stats{
+  margin-top:auto;display:grid;grid-template-columns:1fr 1fr;
+  gap:.12em .55em;padding:.5em .75em .85em;
+}
+.fc-stat{display:flex;align-items:baseline;gap:.4em;color:#15100a}
+.fc-none .fc-stat{color:#cfd8e4}
+.fc-stat b{font-size:1.05em;font-weight:700;min-width:1.55em;font-variant-numeric:tabular-nums}
+.fc-stat span{font-size:.72em;letter-spacing:.03em;font-weight:700;opacity:.75;white-space:nowrap}
+
+/* ---------- the rotating ring ---------- */
+.ring-stage{
+  position:relative;height:420px;perspective:1200px;
+  touch-action:pan-y;cursor:grab;overflow:hidden;
+}
+.ring-stage.dragging{cursor:grabbing}
+.ring{position:absolute;inset:0;transform-style:preserve-3d}
+.ring .fc{position:absolute;left:50%;top:50%;margin-left:calc(var(--cw) / -2)}
+.ring-hint{text-align:center;color:var(--ink-3);font-size:13px;margin-top:4px}
+.profile-card-wrap{display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+.profile-card-side{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1 1 240px}
+#profDetail{display:flex;flex-direction:column;gap:22px;margin-top:22px}
+.ring-now{
+  text-align:center;font-size:19px;font-weight:600;margin-top:2px;min-height:1.4em;
+}
+@media (max-width:620px){ .ring-stage{height:360px} .fc{--cw:150px} }
+@media (prefers-reduced-motion:reduce){ .fc::after{display:none} }
 
 /* ---------- profile ---------- */
 .profile-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
@@ -439,7 +508,9 @@ footer{
       <h2>Players</h2>
       <span class="muted" id="playersMeta"></span>
     </div>
-    <div class="grid-players" id="playerGrid"></div>
+    <div class="ring-stage" id="ringStage"><div class="ring" id="ring"></div></div>
+    <div class="ring-now" id="ringNow"></div>
+    <div class="ring-hint">Drag to spin &middot; click a card for the full stats</div>
   </section>
 
   <!-- ============ PROFILE ============ -->
@@ -1283,27 +1354,181 @@ function toggleSort(key) {
 /* ===================================================================
    VIEW: PLAYERS + PROFILE
    =================================================================== */
+/* A Match Attax style rating out of 99, plus the six attributes that go on the
+   card. Everything is scaled against the rest of the league, so the numbers move
+   as the season does. */
+function playerRatings(season) {
+  const { stats } = computeStats(season);
+  const all = Array.from(stats.values());
+  const played = all.filter(s => s.played > 0);
+  const clamp = v => Math.max(1, Math.min(99, Math.round(v)));
+  const peak = (f, floor) => Math.max(floor, ...played.map(f).filter(Number.isFinite), floor);
+
+  const maxNet    = peak(s => Math.abs(s.net), 1);
+  const maxRoi    = peak(s => Math.abs(s.roi), 1);
+  const maxPlayed = peak(s => s.played, 1);
+  const maxSd     = peak(s => s.sd, 1);
+  const maxHost   = peak(s => s.hosted, 1);
+
+  const out = new Map();
+  for (const s of all) {
+    if (!s.played) {
+      out.set(s.player.id, { unrated: true, overall: null, tier: 'none', role: 'RESERVE', attrs: [] });
+      continue;
+    }
+    const prf = clamp(50 + 45 * (s.net / maxNet));
+    const roi = clamp(50 + 45 * ((Number.isFinite(s.roi) ? s.roi : 0) / maxRoi));
+    const nrv = clamp(20 + (Number.isFinite(s.winRate) ? s.winRate : 0) * 0.79);
+    const grd = clamp(20 + 79 * (s.played / maxPlayed));
+    const tlt = clamp(10 + 89 * (s.sd / maxSd));
+    const hst = clamp(s.hosted ? 20 + 79 * (s.hosted / maxHost) : 8);
+    const overall = clamp(0.35 * prf + 0.25 * roi + 0.25 * nrv + 0.15 * grd);
+    out.set(s.player.id, {
+      unrated: false, overall, stat: s,
+      tier: overall >= 80 ? 'gold' : overall >= 60 ? 'silver' : 'bronze',
+      attrs: [['PROFIT', prf], ['RETURN', roi], ['NERVE', nrv], ['GRIND', grd], ['TILT', tlt], ['HOSTING', hst]]
+    });
+  }
+
+  // one standout label each, handed out best-first so the big titles land
+  const pick = (list, score, min) => {
+    const pool = list.filter(s => Number.isFinite(score(s)) && (!min || s.played >= min));
+    return pool.length ? pool.reduce((a, b) => (score(b) > score(a) ? b : a)) : null;
+  };
+  const label = (s, role) => {
+    if (!s) return;
+    const r = out.get(s.player.id);
+    if (r && !r.role) r.role = role;
+  };
+  label(pick(played, s => s.net), 'SHARK');
+  label(pick(played, s => -s.net), 'SPONSOR');
+  label(pick(played, s => s.sd, 2), 'MANIAC');
+  label(pick(played, s => -s.sd, 3), 'THE ROCK');
+  label(pick(played, s => (s.hosted > 0 ? s.hosted : NaN)), 'LANDLORD');
+  for (const s of played) {
+    const r = out.get(s.player.id);
+    if (!r.role) r.role = r.overall >= 80 ? 'ACE' : r.overall >= 60 ? 'GRINDER' : 'FISH';
+  }
+  return out;
+}
+
+function buildCard(p, r, big) {
+  const top = el('div', { class: 'fc-top' });
+  const file = p.photo || PHOTOS[p.slug];
+  if (file) {
+    const img = el('img', { class: 'fc-photo', src: 'assets/players/' + file, alt: p.name });
+    img.addEventListener('error', () => { img.replaceWith(el('div', { class: 'fc-initials', text: initials(p.name) })); });
+    top.append(img);
+  } else {
+    top.append(el('div', { class: 'fc-initials', text: initials(p.name) }));
+  }
+  top.append(el('div', { class: 'fc-badge' }, [
+    el('div', { class: 'fc-ovr', text: r.unrated ? '??' : String(r.overall) }),
+    el('div', { class: 'fc-pos', text: 'RATING' })
+  ]));
+
+  const stats = el('div', { class: 'fc-stats' });
+  if (r.unrated) {
+    stats.append(el('div', { class: 'fc-stat', style: 'grid-column:1/-1;justify-content:center' },
+      [el('span', { text: 'NO NIGHTS PLAYED' })]));
+  } else {
+    r.attrs.forEach(([k, v]) => stats.append(el('div', { class: 'fc-stat' }, [
+      el('b', { text: String(v) }), el('span', { text: k })
+    ])));
+  }
+
+  return el('div', { class: 'fc fc-' + r.tier + (big ? ' big' : ''), title: p.name + ' — ' + r.role }, [
+    top,
+    el('div', { class: 'fc-name', text: p.name.toUpperCase() }),
+    el('div', { class: 'fc-role', text: r.role }),
+    stats
+  ]);
+}
+
+/* ===================================================================
+   VIEW: PLAYERS — a ring of cards you can spin
+   =================================================================== */
 function renderPlayers() {
   const { stats } = computeStats(state.season);
-  const grid = $('#playerGrid');
-  grid.textContent = '';
+  const ratings = playerRatings(state.season);
+  const ring = $('#ring'), stage = $('#ringStage'), now = $('#ringNow');
+  ring.textContent = '';
+
   const list = state.players.slice().sort((a, b) => {
-    const na = stats.get(a.id)?.net ?? 0, nb = stats.get(b.id)?.net ?? 0;
-    return nb - na || a.name.localeCompare(b.name);
+    const ra = ratings.get(a.id), rb = ratings.get(b.id);
+    return (rb.overall ?? -1) - (ra.overall ?? -1) || a.name.localeCompare(b.name);
   });
-  list.forEach(p => {
-    const s = stats.get(p.id);
-    grid.append(el('div', {
-      class: 'pcard', role: 'link', tabindex: '0',
-      onclick: () => go('player-' + p.slug),
-      onkeydown: e => { if (e.key === 'Enter') go('player-' + p.slug); }
-    }, [
-      avatar(p, 'lg'),
-      el('div', { class: 'nm', text: p.name }),
-      el('div', { class: 'net ' + signClass(s.net), text: s.played ? signed(s.net) : '–' }),
-      el('div', { class: 'meta', text: s.played ? s.played + ' night' + (s.played === 1 ? '' : 's') + ' · ' + pct(s.roi) + ' ROI' : 'No nights yet' })
-    ]));
+  const n = list.length;
+  if (!n) { now.textContent = ''; return; }
+
+  // radius big enough that neighbouring cards do not overlap
+  const cardW = stage.clientWidth < 620 ? 150 : 174;
+  const radius = Math.max(280, Math.round((cardW + 62) / (2 * Math.tan(Math.PI / n))));
+  const step = 360 / n;
+
+  const cards = list.map((p, i) => {
+    const card = buildCard(p, ratings.get(p.id), false);
+    card.style.transform = `translateY(-50%) rotateY(${i * step}deg) translateZ(${radius}px)`;
+    card.addEventListener('click', () => { if (!moved) go('player-' + p.slug); });
+    ring.append(card);
+    return card;
   });
+
+  let angle = state.ringAngle || 0, vel = 0, dragging = false, moved = false, lastX = 0;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // only the newest render keeps animating, and only while this view is open
+  const gen = (state.ringGen || 0) + 1;
+  state.ringGen = gen;
+
+  function paint() {
+    ring.style.transform = `translateZ(-${radius}px) rotateY(${angle}deg)`;
+    let best = 0, bestD = 1e9;
+    cards.forEach((c, i) => {
+      const a = (((i * step + angle) % 360) + 360) % 360;   // 0 = facing us
+      const d = Math.min(a, 360 - a);
+      if (d < bestD) { bestD = d; best = i; }
+      // fade and stack by depth, so the front card reads clearly
+      const facing = Math.cos(a * Math.PI / 180);
+      c.style.opacity = (0.3 + 0.7 * (facing + 1) / 2).toFixed(3);
+      c.style.zIndex = String(Math.round(100 + facing * 100));
+    });
+    const p = list[best], r = ratings.get(p.id), s = stats.get(p.id);
+    now.textContent = r.unrated
+      ? p.name + ' — not rated yet'
+      : p.name + ' — ' + r.overall + ' ' + r.role + ' · ' + signed(s.net);
+  }
+
+  function tick() {
+    if (state.ringGen !== gen || state.view !== 'players') return;
+    if (!dragging) {
+      if (Math.abs(vel) > 0.02) { angle += vel; vel *= 0.95; }
+      else if (!reduced) angle += 0.12;          // gentle idle drift
+    }
+    paint();
+    state.ringAngle = angle;
+    requestAnimationFrame(tick);
+  }
+
+  // no pointer capture: it would retarget the click and swallow card taps
+  stage.onpointerdown = e => {
+    dragging = true; moved = false; lastX = e.clientX; vel = 0;
+    stage.classList.add('dragging');
+  };
+  stage.onpointermove = e => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX;
+    lastX = e.clientX;
+    if (Math.abs(dx) > 2) moved = true;
+    angle += dx * 0.35;
+    vel = dx * 0.35;
+  };
+  const stop = () => { dragging = false; stage.classList.remove('dragging'); };
+  stage.onpointerup = stop;
+  stage.onpointercancel = stop;
+  stage.onpointerleave = () => { if (dragging) stop(); };
+
+  tick();
+
   $('#playersMeta').textContent = state.players.length + ' on the books · season ' + state.season;
 }
 
@@ -1532,23 +1757,33 @@ function renderProfile(slug) {
     ])
   ]);
 
+  // the card is the headline; everything else folds away behind it
+  const card = buildCard(p, playerRatings(state.season).get(p.id), true);
+  const detail = el('div', { id: 'profDetail', hidden: true }, [headTiles, chartPanel, h2hPanel, histPanel]);
+  const toggle = el('button', { class: 'btn', text: 'Show full stats' });
+  toggle.addEventListener('click', () => {
+    detail.hidden = !detail.hidden;
+    toggle.textContent = detail.hidden ? 'Show full stats' : 'Hide full stats';
+    if (!detail.hidden) drawCumulative($('#profChart'), s.cumulative, p.name);
+  });
+
   host.append(
-    el('div', { class: 'profile-head' }, [
-      avatar(p, 'xl'),
-      el('div', { class: 'idy' }, [
+    el('div', { class: 'profile-card-wrap' }, [
+      card,
+      el('div', { class: 'profile-card-side' }, [
         el('div', { class: 'eyebrow', text: place ? 'Ranked #' + place + ' of ' + rows.length : 'Unranked this season' }),
         el('div', { class: 'nm', text: p.name }),
-        el('div', {}, [formStrip(s.history, 10)])
+        el('div', { class: 'muted', text: s.played
+          ? s.played + ' night' + (s.played === 1 ? '' : 's') + ' · ' + signed(s.net) + ' · ' + pct(s.roi) + ' ROI'
+          : 'No nights played yet' }),
+        el('div', { style: 'height:6px' }),
+        el('div', {}, [formStrip(s.history, 10)]),
+        el('div', { style: 'height:12px' }),
+        toggle
       ])
     ]),
-    el('div', { style: 'height:4px' }),
-    headTiles,
-    chartPanel,
-    h2hPanel,
-    histPanel
+    detail
   );
-
-  drawCumulative($('#profChart'), s.cumulative, p.name);
 }
 
 /* ===================================================================
