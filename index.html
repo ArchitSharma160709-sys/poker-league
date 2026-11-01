@@ -297,6 +297,7 @@ td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .entry-grid{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
 .entry-grid th{font-size:11px}
 .entry-grid th:nth-child(2),.entry-grid td:nth-child(2){text-align:left}
+.entry-grid td.derived{color:var(--ink-2)}   /* worked out from the buy-in, not typed */
 .entry-grid td{padding:6px 8px}
 .entry-grid input[type=number]{width:88px}
 .entry-grid input[type=number].small{width:62px}
@@ -522,8 +523,12 @@ footer{
             <label for="logBy">Your name</label>
             <input type="text" id="logBy" placeholder="who's filling this in" autocomplete="name">
           </div>
+          <div class="field">
+            <label for="logBuyIn">Buy-in each</label>
+            <input type="number" id="logBuyIn" min="0" step="0.5" value="10" style="width:100px">
+          </div>
         </div>
-        <p class="muted" style="margin:0">Tick everyone who played. <strong style="color:var(--ink-2);font-weight:600">Money in</strong> is their buy-in plus every rebuy. <strong style="color:var(--ink-2);font-weight:600">Cash out</strong> is what they left the table with.</p>
+        <p class="muted" style="margin:0">Tick everyone who played — they're all in for the buy-in above. Add <strong style="color:var(--ink-2);font-weight:600">rebuys</strong> for anyone who reloaded, and <strong style="color:var(--ink-2);font-weight:600">cash out</strong> is what they left the table with.</p>
       </div>
       <div class="scroll-x">
         <table class="entry-grid" id="entryGrid">
@@ -1927,6 +1932,12 @@ function spinSeats() {
 /* ===================================================================
    VIEW: LOG A NIGHT
    =================================================================== */
+/* The buy-in everyone puts in, set once for the whole night. */
+function buyInValue() {
+  const v = Number($('#logBuyIn').value);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
 function renderLogForm() {
   const hostSel = $('#logHost');
   hostSel.textContent = '';
@@ -1938,8 +1949,8 @@ function renderLogForm() {
   thead.append(el('tr', {}, [
     el('th', { text: 'Played' }),
     el('th', { text: 'Player' }),
-    el('th', { class: 'num', text: 'Money in' }),
     el('th', { class: 'num', text: 'Rebuys' }),
+    el('th', { class: 'num', text: 'In' }),
     el('th', { class: 'num', text: 'Cash out' }),
     el('th', { class: 'num', text: 'Net' })
   ]));
@@ -1947,42 +1958,49 @@ function renderLogForm() {
   const tbody = $('#entryGrid tbody');
   tbody.textContent = '';
   state.logRows = new Map();
+  const syncers = [];
 
   state.players.forEach(p => {
     const row = { on: false, moneyIn: 0, rebuys: 0, cashOut: 0 };
     const tr = el('tr', { class: 'off' });
 
     const chk = el('input', { type: 'checkbox', id: 'play-' + p.slug, 'aria-label': 'Did ' + p.name + ' play?' });
-    const inIn  = el('input', { type: 'number', min: '0', step: '0.5', value: '', placeholder: '0', id: 'in-' + p.slug, 'aria-label': p.name + ' money in' });
     const inRb  = el('input', { type: 'number', min: '0', step: '1', value: '', placeholder: '0', class: 'small', id: 'rb-' + p.slug, 'aria-label': p.name + ' rebuys' });
     const inOut = el('input', { type: 'number', min: '0', step: '0.5', value: '', placeholder: '0', id: 'out-' + p.slug, 'aria-label': p.name + ' cash out' });
+    const inCell  = el('td', { class: 'num derived', text: '–' });
     const netCell = el('td', { class: 'num zero', text: '–' });
 
     function sync() {
       row.on = chk.checked;
-      row.moneyIn = Number(inIn.value) || 0;
-      row.rebuys = Number(inRb.value) || 0;
+      row.rebuys = Math.max(0, Math.round(Number(inRb.value) || 0));
       row.cashOut = Number(inOut.value) || 0;
+      // everyone is in for the buy-in, plus the same again for each rebuy
+      row.moneyIn = row.on ? buyInValue() * (1 + row.rebuys) : 0;
       tr.classList.toggle('off', !row.on);
+      inCell.textContent = row.on ? money(row.moneyIn) : '–';
       const net = row.cashOut - row.moneyIn;
       netCell.textContent = row.on ? signed(net) : '–';
       netCell.className = 'num ' + (row.on ? signClass(net) : 'zero');
       updateBalance();
     }
-    [chk, inIn, inRb, inOut].forEach(i => i.addEventListener('input', sync));
-    chk.addEventListener('change', () => { if (chk.checked && !inIn.value) inIn.focus(); sync(); });
+    syncers.push(sync);
+    [chk, inRb, inOut].forEach(i => i.addEventListener('input', sync));
+    chk.addEventListener('change', () => { if (chk.checked) inOut.focus(); sync(); });
 
     tr.append(
       el('td', {}, [chk]),
       el('td', {}, [el('div', { class: 'who' }, [avatar(p), el('span', { text: p.name })])]),
-      el('td', { class: 'num' }, [inIn]),
       el('td', { class: 'num' }, [inRb]),
+      inCell,
       el('td', { class: 'num' }, [inOut]),
       netCell
     );
     tbody.append(tr);
     state.logRows.set(p.id, row);
   });
+
+  // changing the buy-in re-prices every player who is ticked
+  $('#logBuyIn').oninput = () => syncers.forEach(fn => fn());
 
   $('#logDate').value = $('#logDate').value || todayISO();
   updateBalance();
@@ -2029,9 +2047,9 @@ async function submitNight() {
   const pot = rows.reduce((t, [, r]) => t + r.moneyIn, 0);
   const paid = rows.reduce((t, [, r]) => t + r.cashOut, 0);
   if (rows.length >= 2 && Math.abs(paid - pot) > 0.009) {
-    problems.push('Money in and cash out don’t match — they’re off by ' + money(paid - pot) + '.');
+    problems.push('The pot and the cash-outs don’t match — they’re off by ' + money(paid - pot) + '.');
   }
-  if (rows.some(([, r]) => r.moneyIn <= 0)) problems.push('Everyone who played needs a money-in figure.');
+  if (buyInValue() <= 0) problems.push('Set the buy-in each player put in.');
 
   if (problems.length) {
     notice.append(el('div', { class: 'notice bad' }, [
@@ -2245,11 +2263,16 @@ function boot() {
     if (t) state.token = t;
   } catch (e) {}
 
-  // remember the last table shape on this device
+  // remember the last table shape and buy-in on this device
   try {
     const s = localStorage.getItem('pokerleague.shape');
     if (s && TABLE_SHAPES[s]) state.draw.shape = s;
+    const b = localStorage.getItem('pokerleague.buyin');
+    if (b && Number(b) > 0) $('#logBuyIn').value = b;
   } catch (e) {}
+  $('#logBuyIn').addEventListener('change', () => {
+    try { localStorage.setItem('pokerleague.buyin', $('#logBuyIn').value); } catch (e) {}
+  });
 
   const shapeSel = $('#tableShape');
   Object.entries(TABLE_SHAPES).forEach(([key, s]) =>
