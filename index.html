@@ -325,6 +325,34 @@ td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .badge.appr{background:var(--up-soft);color:var(--up)}
 .badge.rej{background:var(--down-soft);color:var(--down)}
 
+/* ---------- honours ---------- */
+.honours{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:10px}
+.award{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px;display:flex;gap:13px;align-items:flex-start;min-width:0;
+  position:relative;overflow:hidden;
+}
+.award::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);
+}
+.award.cold::before{background:var(--down)}
+.award.hot::before{background:var(--up)}
+.award .body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.award .t{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.award .who{font-size:19px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.award .v{font-family:var(--mono);font-size:15px;font-weight:600}
+.award .sub{font-size:12.5px;color:var(--ink-3)}
+.award.vacant .who{color:var(--ink-3);font-weight:400;font-size:16px}
+
+/* ---------- head to head ---------- */
+.h2h-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px}
+.h2h-card{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px}
+.h2h-card .t{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:5px}
+.h2h-card .who{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:600}
+.h2h-card .sub{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+
+.chase-note{font-size:12.5px;color:var(--ink-3);margin-top:10px}
+
 .empty{
   text-align:center;padding:40px 20px;color:var(--ink-3);font-size:14px;
   display:flex;flex-direction:column;gap:8px;align-items:center;
@@ -368,6 +396,7 @@ footer{
     <nav class="tabs" id="tabs" aria-label="Sections">
       <button data-view="table" aria-current="page">Standings</button>
       <button data-view="players">Players</button>
+      <button data-view="honours">Honours</button>
       <button data-view="nights">Nights</button>
       <button data-view="draw">Seat draw</button>
       <button data-view="log">Log a night</button>
@@ -396,10 +425,10 @@ footer{
     </div>
     <div class="panel">
       <div class="panel-head">
-        <h3>Net profit by player</h3>
-        <span class="muted">Approved nights only</span>
+        <h3>The chase</h3>
+        <span class="muted">Running total, night by night</span>
       </div>
-      <div class="panel-body"><div class="chart-wrap" id="netChart"></div></div>
+      <div class="panel-body"><div id="chaseChart"></div></div>
     </div>
   </section>
 
@@ -416,6 +445,15 @@ footer{
   <section class="view" id="view-profile" hidden>
     <button class="backlink" id="profileBack">&larr; All players</button>
     <div id="profileBody"></div>
+  </section>
+
+  <!-- ============ HONOURS ============ -->
+  <section class="view" id="view-honours" hidden>
+    <div class="head">
+      <h2>Honours</h2>
+      <span class="muted" id="honoursMeta"></span>
+    </div>
+    <div class="honours" id="honoursGrid"></div>
   </section>
 
   <!-- ============ NIGHTS ============ -->
@@ -820,8 +858,53 @@ function computeStats(season) {
     s.winRate = s.played ? (s.wins / s.played) * 100 : NaN;
     let run = 0;
     s.cumulative = s.history.map(h => { run += h.net; return { date: h.date, value: run }; });
+
+    // longest runs of winning / losing nights (a break-even night ends both)
+    let runW = 0, runL = 0;
+    s.bestWinRun = 0; s.bestLossRun = 0;
+    for (const h of s.history) {
+      if (h.net > 0) { runW++; runL = 0; } else if (h.net < 0) { runL++; runW = 0; } else { runW = runL = 0; }
+      if (runW > s.bestWinRun) s.bestWinRun = runW;
+      if (runL > s.bestLossRun) s.bestLossRun = runL;
+    }
+
+    // current streak, counted back from the most recent night: + winning, - losing
+    let k = 0, sgn = 0;
+    for (let i = s.history.length - 1; i >= 0; i--) {
+      const sign = Math.sign(s.history[i].net);
+      if (sign === 0 || (sgn && sign !== sgn)) break;
+      sgn = sign; k++;
+    }
+    s.streak = k * sgn;
+
+    const nets = s.history.map(h => h.net);
+    s.spread = nets.length ? Math.max(...nets) - Math.min(...nets) : 0;
+    const mean = nets.length ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
+    s.sd = nets.length > 1
+      ? Math.sqrt(nets.reduce((a, b) => a + (b - mean) ** 2, 0) / (nets.length - 1))
+      : 0;
   }
   return { stats, nights };
+}
+
+/* How a player has fared against each other player on the nights they both played. */
+function headToHead(playerId, season) {
+  const rec = new Map();
+  for (const n of approvedNights(season)) {
+    const mine = (n.entries || []).find(e => e.player_id === playerId);
+    if (!mine) continue;
+    const myNet = Number(mine.cash_out) - Number(mine.money_in);
+    for (const e of n.entries) {
+      if (e.player_id === playerId) continue;
+      if (!rec.has(e.player_id)) rec.set(e.player_id, { w: 0, l: 0, d: 0, diff: 0, nights: 0 });
+      const r = rec.get(e.player_id);
+      const theirNet = Number(e.cash_out) - Number(e.money_in);
+      r.nights += 1;
+      r.diff += myNet - theirNet;
+      if (myNet > theirNet) r.w += 1; else if (myNet < theirNet) r.l += 1; else r.d += 1;
+    }
+  }
+  return rec;
 }
 
 function leagueRows(season) {
@@ -847,70 +930,99 @@ const niceStep = range => {
   return [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
 };
 
-/* Horizontal diverging bars: net profit per player, zero line in the middle. */
-function drawNetChart(host, rows) {
+/* The chase: every player's running total across the season. Everyone is drawn
+   in grey; the top three are coloured and labelled, so identity never rests on
+   colour alone. Players who sat a night out carry their line flat across it. */
+const CHASE_COLOURS = ['#f0b429', '#3fb0d6', '#e2608f'];
+
+function drawChase(host, season) {
   host.textContent = '';
-  if (!rows.length) { host.append(emptyBlock('No approved nights yet', 'Once a night is approved it shows up here.')); return; }
+  const { stats } = computeStats(season);
+  const nights = approvedNights(season);
+  const runners = Array.from(stats.values()).filter(s => s.played > 0);
 
-  const H_ROW = 26, PAD_T = 24, PAD_B = 30, PAD_L = 92, PAD_R = 58;
-  const h = rows.length * H_ROW + PAD_T + PAD_B;
-  const W = 760, plotW = W - PAD_L - PAD_R;
-  const maxAbs = Math.max(10, ...rows.map(r => Math.abs(r.net)));
-  const step = niceStep(maxAbs * 2) / 1;
-  const bound = Math.ceil(maxAbs / step) * step || step;
-  const x = v => PAD_L + plotW / 2 + (v / bound) * (plotW / 2);
+  if (!nights.length || !runners.length) {
+    host.append(emptyBlock('No approved nights yet',
+      'Once a night is approved, everyone\u2019s running total is plotted here.'));
+    return;
+  }
 
-  const svg = sv('svg', { viewBox: `0 0 ${W} ${h}`, role: 'img',
-    'aria-label': 'Net profit or loss for each player' });
+  const lines = runners.map(s => {
+    const byId = new Map(s.history.map(h => [h.nightId, h.net]));
+    let run = 0;
+    const pts = [0];
+    for (const n of nights) { if (byId.has(n.id)) run += byId.get(n.id); pts.push(run); }
+    return { name: s.player.name, pts, final: run };
+  }).sort((a, b) => b.final - a.final);
 
-  for (let v = -bound; v <= bound + 0.001; v += step) {
-    const gx = x(v);
-    svg.append(sv('line', { x1: gx, x2: gx, y1: PAD_T - 8, y2: h - PAD_B,
-      stroke: v === 0 ? 'var(--ink-3)' : 'var(--line)', 'stroke-width': v === 0 ? 1.5 : 1 }));
-    const t = sv('text', { x: gx, y: h - PAD_B + 17, 'text-anchor': 'middle',
+  // a narrower viewBox on phones, so the SVG is scaled down less and stays legible
+  const narrow = host.clientWidth > 0 && host.clientWidth < 520;
+  const W = narrow ? 430 : 760, H = narrow ? 330 : 300;
+  const PAD_T = 16, PAD_B = 34;
+  const PAD_L = narrow ? 46 : 56, PAD_R = narrow ? 78 : 92;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+  const all = lines.flatMap(l => l.pts);
+  const step = niceStep((Math.max(...all) - Math.min(...all)) || 20);
+  const yLo = Math.min(0, Math.floor(Math.min(...all) / step) * step);
+  const yHi = Math.max(0, Math.ceil(Math.max(...all) / step) * step);
+  const span = (yHi - yLo) || step;
+  const n = nights.length;
+  const X = i => PAD_L + (n === 0 ? plotW / 2 : (i / n) * plotW);
+  const Y = v => PAD_T + plotH - ((v - yLo) / span) * plotH;
+
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': 'Running profit for every player across the season' });
+
+  for (let v = yLo; v <= yHi + 0.001; v += step) {
+    const gy = Y(v);
+    svg.append(sv('line', { x1: PAD_L, x2: W - PAD_R, y1: gy, y2: gy,
+      stroke: Math.abs(v) < 0.001 ? 'var(--ink-3)' : 'var(--line)',
+      'stroke-width': Math.abs(v) < 0.001 ? 1.5 : 1 }));
+    const t = sv('text', { x: PAD_L - 10, y: gy + 4, 'text-anchor': 'end',
       fill: 'var(--ink-3)', 'font-size': 11, 'font-family': 'var(--mono)' });
     t.textContent = money(v);
     svg.append(t);
   }
 
-  rows.forEach((r, i) => {
-    const y = PAD_T + i * H_ROW;
-    const barH = 13, ry = y + (H_ROW - barH) / 2;
-    const zero = x(0), end = x(r.net);
-    const left = Math.min(zero, end), w = Math.max(Math.abs(end - zero), r.net === 0 ? 0 : 2);
-    const up = r.net >= 0;
+  const path = l => l.pts.map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join(' ');
 
-    const name = sv('text', { x: PAD_L - 12, y: ry + barH - 2, 'text-anchor': 'end',
-      fill: 'var(--ink-2)', 'font-size': 12.5, 'font-family': 'var(--sans)' });
-    name.textContent = r.player.name;
-    svg.append(name);
+  // the pack first, so the leaders sit on top of it
+  lines.slice(3).forEach(l => {
+    svg.append(sv('path', { d: path(l), fill: 'none', stroke: 'var(--surface-3)',
+      'stroke-width': 1.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  });
 
-    if (w > 0) {
-      svg.append(sv('rect', {
-        x: up ? zero : left, y: ry, width: w, height: barH,
-        rx: 4, ry: 4,
-        fill: up ? 'var(--up)' : 'var(--down)'
-      }));
-      // square off the end that touches the zero line
-      svg.append(sv('rect', {
-        x: up ? zero : end + w - 4, y: ry, width: Math.min(4, w), height: barH,
-        fill: up ? 'var(--up)' : 'var(--down)'
-      }));
-    }
+  lines.slice(0, 3).forEach((l, i) => {
+    const c = CHASE_COLOURS[i];
+    svg.append(sv('path', { d: path(l), fill: 'none', stroke: c,
+      'stroke-width': 2.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    svg.append(sv('circle', { cx: X(n), cy: Y(l.final), r: 4, fill: c,
+      stroke: 'var(--surface)', 'stroke-width': 1.5 }));
+    const lab = sv('text', { x: X(n) + 10, y: Y(l.final) + 4, fill: c,
+      'font-size': 12.5, 'font-family': 'var(--sans)', 'font-weight': 600 });
+    lab.textContent = l.name + '  ' + signed(l.final);
+    svg.append(lab);
+  });
 
-    const val = sv('text', {
-      x: up ? end + 8 : end - 8, y: ry + barH - 2,
-      'text-anchor': up ? 'start' : 'end',
-      fill: r.net > 0 ? 'var(--up)' : r.net < 0 ? 'var(--down)' : 'var(--flat)',
-      'font-size': 12, 'font-family': 'var(--mono)', 'font-weight': 600
-    });
-    val.textContent = signed(r.net);
-    svg.append(val);
+  const marks = new Set([1, n]);
+  if (n > (narrow ? 3 : 6)) marks.add(Math.round(n / 2));
+  else for (let i = 1; i <= n; i++) marks.add(i);
+  marks.forEach(i => {
+    if (i < 1 || i > n) return;
+    const t = sv('text', { x: X(i), y: H - PAD_B + 18,
+      'text-anchor': i === n ? 'end' : i === 1 ? 'start' : 'middle',
+      fill: 'var(--ink-3)', 'font-size': 11, 'font-family': 'var(--mono)' });
+    t.textContent = fmtDate(nights[i - 1].played_on);
+    svg.append(t);
   });
 
   const wrap = el('div', { class: 'chart-wrap' });
   wrap.append(svg);
   host.append(wrap);
+  host.append(el('div', { class: 'chase-note',
+    text: lines.length > 3
+      ? 'Leaders named; the other ' + (lines.length - 3) + ' are the grey pack.'
+      : 'Everyone who has played so far.' }));
 }
 
 /* Cumulative profit line for one player, with hover crosshair. */
@@ -1044,14 +1156,22 @@ const COLS = [
   { key: 'avg',     label: 'Avg/night', num: true },
   { key: 'roi',     label: 'ROI',     num: true },
   { key: 'best',    label: 'Best',    num: true },
+  { key: 'streak',  label: 'Streak',  num: true },
   { key: 'form',    label: 'Form',    num: false }
 ];
+
+/* +3 -> "W3", -2 -> "L2" */
+function streakLabel(n) {
+  if (!n) return '–';
+  return (n > 0 ? 'W' : 'L') + Math.abs(n);
+}
 
 function sortVal(s, key) {
   switch (key) {
     case 'name': return s.player.name.toLowerCase();
     case 'best': return s.best ? s.best.net : -Infinity;
     case 'form': return s.net;
+    case 'streak': return s.streak;
     case 'roi':  return Number.isFinite(s.roi) ? s.roi : -Infinity;
     default:     return s[key];
   }
@@ -1117,6 +1237,7 @@ function renderStandings() {
     tr.append(el('td', { class: 'num ' + signClass(s.avg), text: signed(s.avg) }));
     tr.append(el('td', { class: 'num ' + signClass(s.roi), text: pct(s.roi) }));
     tr.append(el('td', { class: 'num ' + (s.best ? signClass(s.best.net) : ''), text: s.best ? signed(s.best.net) : '–' }));
+    tr.append(el('td', { class: 'num ' + signClass(s.streak), text: streakLabel(s.streak) }));
     tr.append(el('td', {}, [formStrip(s.history)]));
     tbody.append(tr);
   });
@@ -1125,7 +1246,7 @@ function renderStandings() {
     ? nights.length + ' night' + (nights.length === 1 ? '' : 's') + ' · tap a row for the full profile'
     : 'Nothing approved yet';
 
-  drawNetChart($('#netChart'), rows.slice().sort((a, b) => b.net - a.net));
+  drawChase($('#chaseChart'), state.season);
 }
 
 function tile(k, v, n, cls) {
@@ -1175,6 +1296,98 @@ function renderPlayers() {
     ]));
   });
   $('#playersMeta').textContent = state.players.length + ' on the books · season ' + state.season;
+}
+
+/* ===================================================================
+   VIEW: HONOURS
+   =================================================================== */
+function seasonAwards(season) {
+  const { stats } = computeStats(season);
+  const nights = approvedNights(season);
+  const played = Array.from(stats.values()).filter(s => s.played > 0);
+
+  // highest score wins; anyone scoring NaN is not eligible
+  const top = score => {
+    const pool = played.filter(s => Number.isFinite(score(s)));
+    return pool.length ? pool.reduce((a, b) => (score(b) > score(a) ? b : a)) : null;
+  };
+
+  const a = [];
+  const add = (title, s, value, sub, tone) =>
+    a.push({ title, who: s ? s.player.name : null, value, sub, tone });
+
+  const shark = top(s => (s.best ? s.best.net : NaN));
+  add('The shark', shark, shark && signed(shark.best.net),
+      shark ? 'Biggest night, ' + fmtDate(shark.best.date) : 'Biggest single-night win', 'hot');
+
+  const donor = top(s => (s.worst ? -s.worst.net : NaN));
+  add('Donation of the season', donor, donor && signed(donor.worst.net),
+      donor ? 'Worst night, ' + fmtDate(donor.worst.date) : 'Worst single night', 'cold');
+
+  const roi = top(s => (s.played >= 2 ? s.roi : NaN));
+  add('Best return', roi, roi && pct(roi.roi),
+      roi ? money(roi.moneyIn) + ' staked, ' + signed(roi.net) + ' back' : 'Best ROI, min 2 nights', 'hot');
+
+  const heater = top(s => (s.bestWinRun >= 2 ? s.bestWinRun : NaN));
+  add('On a heater', heater, heater && heater.bestWinRun + ' in a row',
+      heater ? 'Longest winning run' : 'Longest winning run, min 2', 'hot');
+
+  const cold = top(s => (s.bestLossRun >= 2 ? s.bestLossRun : NaN));
+  add('Cold deck', cold, cold && cold.bestLossRun + ' in a row',
+      cold ? 'Longest losing run' : 'Longest losing run, min 2', 'cold');
+
+  const rock = top(s => s.played);
+  add('The rock', rock, rock && rock.played + (rock.played === 1 ? ' night' : ' nights'),
+      'Never misses a game');
+
+  const host = top(s => (s.hosted > 0 ? s.hosted : NaN));
+  add('Landlord', host, host && host.hosted + (host.hosted === 1 ? ' night' : ' nights'),
+      host ? 'Hosted the most' : 'Most nights hosted');
+
+  const swing = top(s => (s.played >= 2 ? s.spread : NaN));
+  add('Swing merchant', swing, swing && money(swing.spread),
+      swing ? 'Between best and worst night' : 'Biggest range, min 2 nights');
+
+  const steady = top(s => (s.played >= 3 ? -s.sd : NaN));
+  add('Metronome', steady, steady && '±' + money(steady.sd),
+      steady ? 'Smallest swing night to night' : 'Most consistent, min 3 nights');
+
+  const biggest = nights.reduce((b, n) => {
+    const t = nightTotals(n);
+    return (!b || t.pot > b.pot) ? { pot: t.pot, night: n } : b;
+  }, null);
+  a.push({
+    title: 'Biggest pot',
+    who: biggest ? money(biggest.pot) : null,
+    value: null,
+    sub: biggest ? fmtDate(biggest.night.played_on) + ' · ' + nightTotals(biggest.night).count + ' players'
+                 : 'Largest pot of the season'
+  });
+
+  return a;
+}
+
+function renderHonours() {
+  const grid = $('#honoursGrid');
+  grid.textContent = '';
+  const awards = seasonAwards(state.season);
+  const nights = approvedNights(state.season);
+
+  awards.forEach(aw => {
+    const vacant = !aw.who;
+    grid.append(el('div', { class: 'award' + (vacant ? ' vacant' : aw.tone ? ' ' + aw.tone : '') }, [
+      el('div', { class: 'body' }, [
+        el('div', { class: 't', text: aw.title }),
+        el('div', { class: 'who', text: vacant ? 'Not yet awarded' : aw.who }),
+        aw.value ? el('div', { class: 'v ' + (aw.tone === 'cold' ? 'neg' : aw.tone === 'hot' ? 'pos' : ''), text: aw.value }) : null,
+        el('div', { class: 'sub', text: aw.sub })
+      ])
+    ]));
+  });
+
+  $('#honoursMeta').textContent = nights.length
+    ? 'From ' + nights.length + ' approved night' + (nights.length === 1 ? '' : 's') + ' · season ' + state.season
+    : 'Nothing approved yet · season ' + state.season;
 }
 
 function renderProfile(slug) {
@@ -1240,6 +1453,76 @@ function renderProfile(slug) {
     ])
   ]);
 
+  // ---- head to head ----
+  const h2h = headToHead(p.id, state.season);
+  const byId = new Map(state.players.map(x => [x.id, x]));
+  const h2hRows = Array.from(h2h.entries())
+    .map(([id, r]) => ({ opp: byId.get(id), ...r }))
+    .filter(r => r.opp)
+    .sort((a, b) => b.diff - a.diff);
+
+  const nemesis = h2hRows.slice().sort((a, b) => (b.l - b.w) - (a.l - a.w) || a.diff - b.diff)[0];
+  const victim = h2hRows.slice().sort((a, b) => (b.w - b.l) - (a.w - a.l) || b.diff - a.diff)[0];
+
+  const h2hTop = el('div', { class: 'h2h-top' });
+  const faceCard = (title, r, good) => {
+    if (!r || (r.w === 0 && r.l === 0)) {
+      return el('div', { class: 'h2h-card' }, [
+        el('div', { class: 't', text: title }),
+        el('div', { class: 'who', text: '–' }),
+        el('div', { class: 'sub', text: 'Needs a few more nights together' })
+      ]);
+    }
+    return el('div', { class: 'h2h-card' }, [
+      el('div', { class: 't', text: title }),
+      el('div', { class: 'who' }, [avatar(r.opp), el('span', { text: r.opp.name })]),
+      el('div', { class: 'sub' }, [
+        el('span', { text: r.w + 'W ' + r.l + 'L' + (r.d ? ' ' + r.d + 'D' : '') + ' · ' }),
+        el('span', { class: signClass(r.diff), text: signed(r.diff) + ' between you' })
+      ])
+    ]);
+  };
+  h2hTop.append(
+    faceCard('Nemesis', nemesis && nemesis.l > nemesis.w ? nemesis : null),
+    faceCard('Favourite opponent', victim && victim.w > victim.l ? victim : null)
+  );
+
+  const h2hBody = el('tbody');
+  h2hRows.forEach(r => {
+    h2hBody.append(el('tr', {}, [
+      el('td', {}, [el('div', { class: 'who' }, [avatar(r.opp), el('span', { text: r.opp.name })])]),
+      el('td', { class: 'num', text: r.nights }),
+      el('td', { class: 'num', text: r.w }),
+      el('td', { class: 'num', text: r.l }),
+      el('td', { class: 'num ' + signClass(r.diff), text: signed(r.diff) })
+    ]));
+  });
+  if (!h2hRows.length) {
+    h2hBody.append(el('tr', {}, [el('td', { colspan: 5 }, [
+      emptyBlock('No shared nights yet', 'Records appear once ' + p.name + ' has played alongside someone.')
+    ])]));
+  }
+
+  const h2hPanel = el('div', { class: 'panel' }, [
+    el('div', { class: 'panel-head' }, [
+      el('h3', { text: 'Head to head' }),
+      el('span', { class: 'muted', text: 'On nights you both played' })
+    ]),
+    el('div', { class: 'panel-body' }, [h2hTop]),
+    el('div', { class: 'scroll-x' }, [
+      el('table', {}, [
+        el('thead', {}, [el('tr', {}, [
+          el('th', { text: 'Opponent' }),
+          el('th', { class: 'num', text: 'Nights' }),
+          el('th', { class: 'num', text: 'Beat' }),
+          el('th', { class: 'num', text: 'Lost to' }),
+          el('th', { class: 'num', text: 'Net diff' })
+        ])]),
+        h2hBody
+      ])
+    ])
+  ]);
+
   host.append(
     el('div', { class: 'profile-head' }, [
       avatar(p, 'xl'),
@@ -1252,6 +1535,7 @@ function renderProfile(slug) {
     el('div', { style: 'height:4px' }),
     headTiles,
     chartPanel,
+    h2hPanel,
     histPanel
   );
 
@@ -1818,7 +2102,7 @@ function alertish(text) {
 /* ===================================================================
    ROUTING + BOOT
    =================================================================== */
-const VIEWS = ['table', 'players', 'profile', 'nights', 'draw', 'log', 'admin'];
+const VIEWS = ['table', 'players', 'profile', 'honours', 'nights', 'draw', 'log', 'admin'];
 
 function go(token) {
   if (location.hash.slice(1) === token) route();
@@ -1843,6 +2127,7 @@ function route() {
   if (view === 'table') renderStandings();
   if (view === 'players') renderPlayers();
   if (view === 'profile') renderProfile(slug);
+  if (view === 'honours') renderHonours();
   if (view === 'nights') renderNights();
   if (view === 'draw') { renderPickList(); renderDrawTable(); updateDrawNotice(); }
   if (view === 'log') renderLogForm();
@@ -1926,7 +2211,10 @@ function boot() {
   let rt;
   window.addEventListener('resize', () => {
     clearTimeout(rt);
-    rt = setTimeout(() => { if (state.view === 'draw' && !state.draw.spinning) renderDrawTable(); }, 150);
+    rt = setTimeout(() => {
+      if (state.view === 'draw' && !state.draw.spinning) renderDrawTable();
+      if (state.view === 'table') drawChase($('#chaseChart'), state.season);
+    }, 150);
   });
 
   refresh().catch(err => {
