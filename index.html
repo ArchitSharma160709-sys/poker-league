@@ -478,6 +478,10 @@ footer{
             <label for="seatCount">Players at the table</label>
             <select id="seatCount"></select>
           </div>
+          <div class="field">
+            <label for="tableShape">Table shape</label>
+            <select id="tableShape"></select>
+          </div>
           <div class="btn-row">
             <button class="btn primary big" id="spinBtn">Spin the seats</button>
             <button class="btn" id="clearDraw">Reset</button>
@@ -794,7 +798,7 @@ const state = {
   token: null,
   adminEmail: null,
   sort: { key: 'net', dir: -1 },
-  draw: { count: 8, picked: new Set(), seats: [], dealer: -1, spinning: false },
+  draw: { count: 8, shape: 'racetrack', picked: new Set(), seats: [], dealer: -1, spinning: false },
   logRows: new Map()
 };
 
@@ -1630,13 +1634,47 @@ function nightCard(n, byId, withActions) {
    VIEW: SEAT DRAW
    =================================================================== */
 /* ---- table geometry, all in the 100 x 62 viewBox the table is drawn in ---- */
-const TABLE = {
-  cx: 50, cy: 31,
-  rail:  { w: 82, h: 42 },   // outer edge of the padded rail
-  felt:  { w: 72, h: 32 },   // playing surface
-  bet:   { w: 50, h: 15 }    // betting line
+const TABLE = { cx: 50, cy: 31, vbW: 100, vbH: 62 };
+
+/* Each shape gives its rail, felt and betting line as either a rounded rectangle
+   {w,h,r} or an ellipse {w,h,e:1}. A racetrack is just a rounded rectangle whose
+   corner radius is half its height; a circle is one where it is half of both.
+   Rails stay small enough that the ring of seats outside them, plus the width
+   of a seat label, still lands inside the 100 x 62 frame. */
+const TABLE_SHAPES = {
+  racetrack: { label: 'Poker table', rail: { w: 72, h: 38, r: 19 },  felt: { w: 63, h: 29, r: 14.5 }, bet: { w: 44, h: 13, r: 6.5 } },
+  oval:      { label: 'Oval',        rail: { w: 72, h: 40, e: 1 },   felt: { w: 62, h: 30, e: 1 },    bet: { w: 42, h: 15, e: 1 } },
+  round:     { label: 'Round',       rail: { w: 40, h: 40, r: 20 },  felt: { w: 32, h: 32, r: 16 },   bet: { w: 19, h: 19, r: 9.5 } },
+  rectangle: { label: 'Rectangular', rail: { w: 72, h: 40, r: 4 },   felt: { w: 62, h: 30, r: 2.5 },  bet: { w: 42, h: 15, r: 2 } },
+  square:    { label: 'Square',      rail: { w: 40, h: 40, r: 4 },   felt: { w: 32, h: 32, r: 2.5 },  bet: { w: 19, h: 19, r: 2 } }
 };
-const rr = d => ({ ...d, r: d.h / 2 });   // a poker table is a racetrack: fully rounded ends
+
+const currentShape = () => TABLE_SHAPES[state.draw.shape] || TABLE_SHAPES.racetrack;
+
+/* Evenly spaced points round an ellipse, measured by arc length rather than by
+   angle — equal angles bunch the seats up at the flatter ends. */
+function ellipseSeats(n, cx, cy, rx, ry, off) {
+  const N = 720, pts = [], ang = [], cum = [0];
+  for (let i = 0; i <= N; i++) {
+    const a = Math.PI / 2 - (i / N) * Math.PI * 2;   // bottom-centre, then clockwise
+    ang.push(a);
+    pts.push({ x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) });
+    if (i) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  }
+  const total = cum[N], out = [];
+  for (let k = 0; k < n; k++) {
+    const target = (k / n) * total;
+    let i = 1;
+    while (i < N && cum[i] < target) i++;
+    const f = (target - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
+    const a = ang[i - 1] + (ang[i] - ang[i - 1]) * f;
+    let nx = Math.cos(a) / rx, ny = Math.sin(a) / ry;   // outward normal of an ellipse
+    const m = Math.hypot(nx, ny) || 1;
+    nx /= m; ny /= m;
+    out.push({ x: cx + rx * Math.cos(a) + nx * off, y: cy + ry * Math.sin(a) + ny * off, ny });
+  }
+  return out;
+}
 
 /* Walk the perimeter of a rounded rectangle. t = 0 is bottom-centre,
    increasing clockwise. Returns the point plus an outward normal. */
@@ -1665,17 +1703,39 @@ function rrPoint(t, cx, cy, w, h, r) {
 
 function seatPositions(n, narrow) {
   // Seats sit just outside the rail, spaced evenly around the table's perimeter.
-  const out = [], off = narrow ? 5 : 7;
-  const { cx, cy } = TABLE, rail = rr(TABLE.rail);
-  for (let i = 0; i < n; i++) {
-    const p = rrPoint(i / n, cx, cy, rail.w, rail.h, rail.r);
-    out.push({
-      left: p.x + p.nx * off,                     // % of width  (viewBox width 100)
-      top: (p.y + p.ny * off) / 62 * 100,         // % of height (viewBox height 62)
-      edge: Math.abs(p.ny) > 0.7 ? (p.ny > 0 ? 'bottom' : 'top') : 'side'
-    });
+  const { cx, cy, vbH } = TABLE;
+  const rail = currentShape().rail;
+  const off = narrow ? 5 : 7;
+  const side = ny => (Math.abs(ny) > 0.7 ? (ny > 0 ? 'bottom' : 'top') : 'side');
+  const out = [];
+
+  // Space the seats along the ring itself rather than along the rail and then
+  // pushing them out: offsetting afterwards spreads them apart at the corners.
+  if (rail.e) {
+    for (const p of ellipseSeats(n, cx, cy, rail.w / 2 + off, rail.h / 2 + off, 0)) {
+      out.push({ left: p.x, top: p.y / vbH * 100, edge: side(p.ny) });
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const p = rrPoint(i / n, cx, cy, rail.w + off * 2, rail.h + off * 2, rail.r + off);
+      out.push({
+        left: p.x,                        // % of width  (viewBox width 100)
+        top: p.y / vbH * 100,             // % of height (viewBox height 62)
+        edge: side(p.ny)
+      });
+    }
   }
   return out;
+}
+
+/* One outline of the current shape — a path for rounded rectangles, an ellipse
+   for ovals. `grow` insets (negative) or outsets (positive) the whole outline. */
+function shapeEl(d, cx, cy, grow, attrs) {
+  if (d.e) return sv('ellipse', { cx, cy, rx: d.w / 2 + grow, ry: d.h / 2 + grow, ...attrs });
+  return sv('path', {
+    d: rrPath(cx, cy, d.w + grow * 2, d.h + grow * 2, Math.max(0, d.r + grow)),
+    ...attrs
+  });
 }
 
 /* SVG path for a rounded rectangle, used for the rail, felt and betting line. */
@@ -1696,7 +1756,8 @@ function renderDrawTable() {
   const pos = seatPositions(n, narrow);
 
   const { cx, cy } = TABLE;
-  const rail = rr(TABLE.rail), felt = rr(TABLE.felt), bet = rr(TABLE.bet);
+  const shape = currentShape();
+  const rail = shape.rail, felt = shape.felt, bet = shape.bet;
 
   const svg = sv('svg', { viewBox: '0 0 100 62', preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
 
@@ -1719,27 +1780,25 @@ function renderDrawTable() {
   svg.append(defs);
 
   // shadow on the floor
-  svg.append(sv('path', { d: rrPath(cx, cy + 1.4, rail.w, rail.h, rail.r), fill: 'rgba(0,0,0,.5)' }));
+  svg.append(shapeEl(rail, cx, cy + 1.4, 0, { fill: 'rgba(0,0,0,.5)' }));
   // the rail itself
-  svg.append(sv('path', { d: rrPath(cx, cy, rail.w, rail.h, rail.r), fill: 'url(#railG)' }));
+  svg.append(shapeEl(rail, cx, cy, 0, { fill: 'url(#railG)' }));
   // highlight along the rail's outer edge
-  svg.append(sv('path', { d: rrPath(cx, cy, rail.w, rail.h, rail.r), fill: 'none',
-    stroke: 'rgba(255,255,255,.10)', 'stroke-width': .5 }));
+  svg.append(shapeEl(rail, cx, cy, 0, { fill: 'none', stroke: 'rgba(255,255,255,.10)', 'stroke-width': .5 }));
   // stitching, just inside the rail
-  svg.append(sv('path', { d: rrPath(cx, cy, rail.w - 3.4, rail.h - 3.4, rail.r - 1.7), fill: 'none',
-    stroke: 'rgba(214,180,140,.30)', 'stroke-width': .35, 'stroke-dasharray': '1.1 1.3',
-    'stroke-linecap': 'round' }));
+  svg.append(shapeEl(rail, cx, cy, -1.7, { fill: 'none', stroke: 'rgba(214,180,140,.30)',
+    'stroke-width': .35, 'stroke-dasharray': '1.1 1.3', 'stroke-linecap': 'round' }));
   // felt, dropped slightly into the rail
-  svg.append(sv('path', { d: rrPath(cx, cy, felt.w, felt.h, felt.r), fill: 'rgba(0,0,0,.45)' }));
-  svg.append(sv('path', { d: rrPath(cx, cy - 0.35, felt.w, felt.h, felt.r), fill: 'url(#feltG)' }));
-  svg.append(sv('path', { d: rrPath(cx, cy - 0.35, felt.w, felt.h, felt.r), fill: 'none',
-    stroke: 'rgba(0,0,0,.4)', 'stroke-width': .6 }));
+  svg.append(shapeEl(felt, cx, cy, 0, { fill: 'rgba(0,0,0,.45)' }));
+  svg.append(shapeEl(felt, cx, cy - 0.35, 0, { fill: 'url(#feltG)' }));
+  svg.append(shapeEl(felt, cx, cy - 0.35, 0, { fill: 'none', stroke: 'rgba(0,0,0,.4)', 'stroke-width': .6 }));
   // betting line
-  svg.append(sv('path', { d: rrPath(cx, cy, bet.w, bet.h, bet.r), fill: 'none',
-    stroke: 'rgba(255,255,255,.13)', 'stroke-width': .35, 'stroke-dasharray': '1.5 1.8' }));
+  svg.append(shapeEl(bet, cx, cy, 0, { fill: 'none', stroke: 'rgba(255,255,255,.13)',
+    'stroke-width': .35, 'stroke-dasharray': '1.5 1.8' }));
 
-  // community cards
-  const cw = 5.4, ch = 7.6, gap = 1.3;
+  // community cards, scaled down on the smaller tables so they stay on the felt
+  const tight = felt.w < 60;
+  const cw = tight ? 3.6 : 5.4, ch = tight ? 5.1 : 7.6, gap = tight ? .8 : 1.3;
   const row = 5 * cw + 4 * gap;
   for (let i = 0; i < 5; i++) {
     svg.append(sv('rect', {
@@ -1749,11 +1808,14 @@ function renderDrawTable() {
     }));
   }
 
-  const mark = sv('text', { x: cx, y: cy + 11.6, 'text-anchor': 'middle',
-    fill: 'rgba(255,255,255,.17)', 'font-size': 3.6,
-    'font-family': 'EB Garamond, Garamond, serif', 'letter-spacing': 1.1 });
-  mark.textContent = 'POKER LEAGUE';
-  svg.append(mark);
+  // the wordmark only fits on the longer tables
+  if (!tight) {
+    const mark = sv('text', { x: cx, y: cy + 10.4, 'text-anchor': 'middle',
+      fill: 'rgba(255,255,255,.17)', 'font-size': 3.2,
+      'font-family': 'EB Garamond, Garamond, serif', 'letter-spacing': 1 });
+    mark.textContent = 'POKER LEAGUE';
+    svg.append(mark);
+  }
 
   stage.append(svg);
 
@@ -2182,6 +2244,21 @@ function boot() {
     const t = sessionStorage.getItem('pokerleague.token');
     if (t) state.token = t;
   } catch (e) {}
+
+  // remember the last table shape on this device
+  try {
+    const s = localStorage.getItem('pokerleague.shape');
+    if (s && TABLE_SHAPES[s]) state.draw.shape = s;
+  } catch (e) {}
+
+  const shapeSel = $('#tableShape');
+  Object.entries(TABLE_SHAPES).forEach(([key, s]) =>
+    shapeSel.append(el('option', { value: key, text: s.label, selected: key === state.draw.shape })));
+  shapeSel.addEventListener('change', () => {
+    state.draw.shape = shapeSel.value;
+    try { localStorage.setItem('pokerleague.shape', shapeSel.value); } catch (e) {}
+    renderDrawTable();
+  });
 
   const seatSel = $('#seatCount');
   for (let i = 2; i <= 15; i++) {
