@@ -351,6 +351,46 @@ td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .table-stage.narrow .seat-label .pn{font-size:11.5px;padding:3px 7px}
 .table-stage.narrow .seat-label .sn{font-size:9px}
 .table-stage.narrow .seat-label .dbtn{width:16px;height:16px;font-size:9px;right:2px;bottom:-5px}
+/* ---------- chip division ---------- */
+.chip-stacks{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end;justify-content:center;padding:6px 0 2px}
+.chip-stack{display:flex;flex-direction:column;align-items:center;gap:9px;min-width:62px}
+.chip-pile{display:flex;flex-direction:column-reverse;align-items:center;min-height:30px}
+.chip-disc{
+  width:46px;height:12px;border-radius:50%;margin-top:-6.5px;flex:none;
+  box-shadow:0 1px 0 rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.22);
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255,255,255,.34) 0deg 11deg, transparent 11deg 45deg),
+    var(--cc);
+  border:1px solid rgba(0,0,0,.45);
+}
+.chip-disc:first-child{margin-top:0}
+.chip-stack .cs-n{font-family:var(--mono);font-variant-numeric:lining-nums tabular-nums;
+  font-size:21px;font-weight:600;line-height:1}
+.chip-stack .cs-l{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.chip-stack.empty{opacity:.42}
+.chip-swatch{
+  width:16px;height:16px;border-radius:50%;display:inline-block;vertical-align:-3px;margin-right:8px;
+  border:1px solid rgba(0,0,0,.5);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255,255,255,.34) 0deg 11deg, transparent 11deg 45deg),
+    var(--cc);
+}
+.chip-sum{
+  display:flex;gap:28px;flex-wrap:wrap;padding:14px 16px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);
+}
+.chip-sum .cell{display:flex;flex-direction:column;gap:3px}
+.chip-sum .cell .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.chip-sum .cell .v{font-family:var(--mono);font-variant-numeric:lining-nums tabular-nums;font-size:19px;font-weight:600}
+.owned-grid{display:flex;gap:12px;flex-wrap:wrap}
+.owned-grid .field{min-width:84px}
+.owned-grid input{width:84px}
+@media (max-width:560px){
+  .chip-stacks{gap:14px}
+  .chip-stack{min-width:50px}
+  .chip-disc{width:36px}
+}
 
 .pick-list{display:flex;flex-wrap:wrap;gap:7px}
 .pick{
@@ -469,6 +509,7 @@ footer{
       <button data-view="honours">Honours</button>
       <button data-view="nights">Nights</button>
       <button data-view="draw">Seat draw</button>
+      <button data-view="chips">Chips</button>
       <button data-view="log">Log a night</button>
       <button data-view="admin">Admin<span class="count" id="pendCount" hidden>0</span></button>
     </nav>
@@ -569,6 +610,53 @@ footer{
     <div class="panel">
       <div class="panel-body">
         <div class="table-stage" id="stage"></div>
+      </div>
+    </div>
+  </section>
+  <!-- ============ CHIP DIVISION ============ -->
+  <section class="view" id="view-chips" hidden>
+    <div class="head">
+      <h2>Chip division</h2>
+      <span class="muted">How many of each chip everyone starts with</span>
+    </div>
+    <div class="panel">
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:16px">
+        <div class="draw-controls">
+          <div class="field">
+            <label for="chipBuyIn">Buy-in each</label>
+            <input type="number" id="chipBuyIn" min="0.05" step="0.05" value="10" style="width:100px">
+          </div>
+          <div class="field">
+            <label for="chipPlayers">Players</label>
+            <input type="number" id="chipPlayers" min="1" max="30" step="1" value="8" style="width:84px">
+          </div>
+          <label class="pick" style="align-self:flex-end">
+            <input type="checkbox" id="chipLimit">
+            <span>Limit to the chips we own</span>
+          </label>
+        </div>
+        <div class="field" id="chipOwnedWrap" hidden>
+          <label>How many of each chip are in the set</label>
+          <div class="owned-grid" id="chipOwned"></div>
+        </div>
+        <div id="chipNotice"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:18px">
+        <div class="chip-stacks" id="chipStacks"></div>
+        <div class="chip-sum" id="chipSum"></div>
+        <div style="overflow-x:auto">
+          <table id="chipTable"></table>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-body">
+        <div class="head" style="margin:0 0 10px"><h2 style="font-size:17px">Suggested blinds</h2></div>
+        <div style="overflow-x:auto">
+          <table id="blindTable"></table>
+        </div>
       </div>
     </div>
   </section>
@@ -2414,10 +2502,230 @@ function alertish(text) {
   host.prepend(el('div', { class: 'notice bad', text }));
 }
 
+
+/* ============================================================
+   CHIP DIVISION
+   ============================================================ */
+
+/* Our physical set, in pence. */
+const CHIPS = [
+  { key: 'white', label: 'White', p: 5,   colour: '#eceff1' },
+  { key: 'red',   label: 'Red',   p: 10,  colour: '#c0392b' },
+  { key: 'black', label: 'Black', p: 20,  colour: '#24262b' },
+  { key: 'blue',  label: 'Blue',  p: 50,  colour: '#2563a8' },
+  { key: 'green', label: 'Green', p: 100, colour: '#2e7d4f' }
+];
+
+/* How much of a stack's VALUE each colour should carry. Weighted towards the
+   big chips so a stack stays a sensible height, with enough small change to
+   post blinds for the first few levels. */
+const CHIP_SHARE = { white: .06, red: .10, black: .14, blue: .30, green: .40 };
+/* Nobody wants to count out 40 whites. */
+const CHIP_CAP   = { white: 14, red: 14, black: 12, blue: 12, green: Infinity };
+
+/* Search every stack that fits inside the limits and keep the one that adds up
+   to the buy-in exactly with the value split closest to the ideal shape. Going
+   colour by colour and topping up can leave a 5p gap no single swap can close,
+   so the whole space gets searched — it is only ~10^5 combinations. */
+function chipPlan(buyInP, players, owned) {
+  const lim = {};
+  for (const c of CHIPS) {
+    const own = owned && Number.isFinite(owned[c.key]) ? Math.floor(owned[c.key] / players) : Infinity;
+    lim[c.key] = Math.max(0, Math.min(CHIP_CAP[c.key], own, Math.floor(buyInP / c.p)));
+  }
+  const want = {};                       // ideal value carried by each colour
+  for (const c of CHIPS) want[c.key] = buyInP * CHIP_SHARE[c.key];
+  const score = cts => CHIPS.reduce((t, c) => {
+    const d = cts[c.key] * c.p - want[c.key];
+    return t + d * d;
+  }, 0);
+
+  let best = null, under = null;
+  for (let g = 0; g <= lim.green; g++) {
+    const vg = g * 100; if (vg > buyInP) break;
+    for (let bl = 0; bl <= lim.blue; bl++) {
+      const vbl = vg + bl * 50; if (vbl > buyInP) break;
+      for (let b = 0; b <= lim.black; b++) {
+        const vb = vbl + b * 20; if (vb > buyInP) break;
+        for (let r = 0; r <= lim.red; r++) {
+          const vr = vb + r * 10; if (vr > buyInP) break;
+          const w = Math.min(lim.white, Math.floor((buyInP - vr) / 5));
+          const cts = { white: w, red: r, black: b, blue: bl, green: g };
+          const total = vr + w * 5;
+          if (total === buyInP) {
+            const s = score(cts);
+            if (!best || s < best.score) best = { score: s, counts: cts, total };
+          } else if (!under || total > under.total) {
+            under = { counts: cts, total };
+          }
+        }
+      }
+    }
+  }
+
+  const pick = best || under || { counts: { white: 0, red: 0, black: 0, blue: 0, green: 0 }, total: 0 };
+  const totals = {};
+  for (const c of CHIPS) totals[c.key] = pick.counts[c.key] * players;
+  return {
+    count: pick.counts,
+    totals,
+    perPlayer: pick.total,
+    exact: pick.total === buyInP,
+    shortBy: buyInP - pick.total,
+    stackSize: CHIPS.reduce((t, c) => t + pick.counts[c.key], 0),
+    // colours the set itself held back, rather than the sensible-stack caps
+    squeezed: CHIPS.filter(c => owned && Number.isFinite(owned[c.key]) &&
+      Math.floor(owned[c.key] / players) < CHIP_CAP[c.key] &&
+      pick.counts[c.key] >= Math.floor(owned[c.key] / players))
+  };
+}
+
+/* A short blind ladder off the back of the stack. Doubling a starting blind and
+   rounding it off lands on scruffy numbers like 75p, so the levels come from a
+   fixed ladder scaled by a round factor — every blind stays something the chips
+   can actually pay, and the first big blind sits near a fiftieth of the buy-in. */
+const BLIND_LADDER = [[5, 10], [10, 20], [15, 30], [25, 50], [50, 100], [100, 200]];
+
+function blindLadder(buyInP) {
+  const want = buyInP / 50 / 10;          // the ladder's first big blind is 10
+  const scale = [1, 2, 5, 10, 20, 50, 100, 200]
+    .reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a));
+  return BLIND_LADDER.map(([sb, bb], i) => ({ level: i + 1, sb: sb * scale, bb: bb * scale }));
+}
+
+const chipOwnedValues = () => {
+  const out = {};
+  if (!$('#chipLimit').checked) return null;
+  for (const c of CHIPS) {
+    const n = Number($('#chipOwn-' + c.key).value);
+    if (Number.isFinite(n) && n >= 0) out[c.key] = Math.floor(n);
+  }
+  return out;
+};
+
+function renderChips() {
+  const buyInP = Math.round(Number($('#chipBuyIn').value) * 100);
+  const players = Math.max(1, Math.floor(Number($('#chipPlayers').value) || 1));
+  const notice = $('#chipNotice');
+  const stacks = $('#chipStacks');
+  const sum = $('#chipSum');
+  const tbl = $('#chipTable');
+  const blinds = $('#blindTable');
+  notice.textContent = ''; stacks.textContent = ''; sum.textContent = '';
+  tbl.textContent = ''; blinds.textContent = '';
+
+  if (!Number.isFinite(buyInP) || buyInP < 5) {
+    notice.append(el('div', { class: 'notice' },
+      [el('span', { text: 'Put in a buy-in of 5p or more and the chips work themselves out.' })]));
+    return;
+  }
+
+  const owned = chipOwnedValues();
+  const plan = chipPlan(buyInP, players, owned);
+  const pot = buyInP * players;
+
+  // the stacks, tallest chip first so it reads left to right like the table
+  for (const c of CHIPS) {
+    const n = plan.count[c.key];
+    const pile = el('div', { class: 'chip-pile' });
+    for (let i = 0; i < Math.min(n, 18); i++)
+      pile.append(el('div', { class: 'chip-disc', style: '--cc:' + c.colour }));
+    stacks.append(el('div', { class: 'chip-stack' + (n ? '' : ' empty') }, [
+      pile,
+      el('div', { class: 'cs-n', text: String(n) }),
+      el('div', { class: 'cs-l', text: c.label + ' · ' + money(c.p / 100) })
+    ]));
+  }
+
+  sum.append(
+    el('div', { class: 'cell' }, [
+      el('div', { class: 'k', text: 'Each player gets' }),
+      el('div', { class: 'v', text: money(plan.perPlayer / 100) })
+    ]),
+    el('div', { class: 'cell' }, [
+      el('div', { class: 'k', text: 'Chips in a stack' }),
+      el('div', { class: 'v', text: String(plan.stackSize) })
+    ]),
+    el('div', { class: 'cell' }, [
+      el('div', { class: 'k', text: 'Chips on the table' }),
+      el('div', { class: 'v', text: String(plan.stackSize * players) })
+    ]),
+    el('div', { class: 'cell' }, [
+      el('div', { class: 'k', text: 'Total pot' }),
+      el('div', { class: 'v', text: money(pot / 100) })
+    ])
+  );
+
+  const head = el('tr');
+  ['Chip', 'Value', 'Each player', 'Total needed', 'Share of stack'].forEach((h, i) =>
+    head.append(el('th', { class: i ? 'num' : null, text: h })));
+  tbl.append(el('thead', {}, [head]));
+  const body = el('tbody');
+  for (const c of CHIPS) {
+    const n = plan.count[c.key];
+    const share = plan.perPlayer ? (n * c.p / plan.perPlayer * 100) : 0;
+    body.append(el('tr', {}, [
+      el('td', {}, [
+        el('span', { class: 'chip-swatch', style: '--cc:' + c.colour }),
+        el('span', { text: c.label })
+      ]),
+      el('td', { class: 'num', text: money(c.p / 100) }),
+      el('td', { class: 'num', text: String(n) }),
+      el('td', { class: 'num', text: String(plan.totals[c.key]) }),
+      el('td', { class: 'num', text: share > 0 && share < 1 ? '<1%' : share.toFixed(0) + '%' })
+    ]));
+  }
+  tbl.append(body);
+
+  const bhead = el('tr');
+  ['Level', 'Small blind', 'Big blind'].forEach((h, i) =>
+    bhead.append(el('th', { class: i ? 'num' : null, text: h })));
+  blinds.append(el('thead', {}, [bhead]));
+  const bbody = el('tbody');
+  for (const r of blindLadder(buyInP)) {
+    bbody.append(el('tr', {}, [
+      el('td', { text: 'Level ' + r.level }),
+      el('td', { class: 'num', text: money(r.sb / 100) }),
+      el('td', { class: 'num', text: money(r.bb / 100) })
+    ]));
+  }
+  blinds.append(bbody);
+
+  if (buyInP % 5) {
+    notice.append(el('div', { class: 'notice bad' }, [
+      el('span', {}, [
+        el('strong', { text: 'That buy-in cannot be paid in chips. ' }),
+        'The smallest chip is 5p, so pick a buy-in that lands on a multiple of 5p.'
+      ])
+    ]));
+  } else if (!plan.exact) {
+    notice.append(el('div', { class: 'notice bad' }, [
+      el('span', {}, [
+        el('strong', { text: 'Not enough chips for that buy-in. ' }),
+        'The best the set manages is ' + money(plan.perPlayer / 100) + ' each, ' +
+        money(plan.shortBy / 100) + ' short. Drop the buy-in, play with fewer people, or untick the limit.'
+      ])
+    ]));
+  }
+  if (plan.exact && plan.squeezed.length) {
+    const names = plan.squeezed.map(c => c.label.toLowerCase());
+    const list = names.length > 1
+      ? names.slice(0, -1).join(', ') + ' and ' + names.slice(-1)
+      : names[0];
+    notice.append(el('div', { class: 'notice' }, [
+      el('span', {}, [
+        el('strong', { text: 'Working around the set. ' }),
+        'There is not enough ' + list + ' to hand out the usual number, so the other ' +
+        'colours carry more of the stack. It still comes to ' + money(plan.perPlayer / 100) + ' each.'
+      ])
+    ]));
+  }
+}
+
 /* ===================================================================
    ROUTING + BOOT
    =================================================================== */
-const VIEWS = ['table', 'players', 'profile', 'honours', 'nights', 'draw', 'log', 'admin'];
+const VIEWS = ['table', 'players', 'profile', 'honours', 'nights', 'draw', 'chips', 'log', 'admin'];
 
 function go(token) {
   if (location.hash.slice(1) === token) route();
@@ -2445,6 +2753,7 @@ function route() {
   if (view === 'honours') renderHonours();
   if (view === 'nights') renderNights();
   if (view === 'draw') { renderPickList(); renderDrawTable(); updateDrawNotice(); }
+  if (view === 'chips') renderChips();
   if (view === 'log') renderLogForm();
   if (view === 'admin') renderAdmin();
 
@@ -2527,6 +2836,44 @@ function boot() {
     state.draw.seats = []; state.draw.dealer = -1;
     renderDrawTable(); updateDrawNotice();
   });
+
+
+  // chip division: owned-chip boxes, then live recalculation
+  const ownHost = $('#chipOwned');
+  CHIPS.forEach(c => ownHost.append(el('div', { class: 'field' }, [
+    el('label', { for: 'chipOwn-' + c.key }, [
+      el('span', { class: 'chip-swatch', style: '--cc:' + c.colour }),
+      el('span', { text: c.label })
+    ]),
+    el('input', { type: 'number', id: 'chipOwn-' + c.key, min: 0, step: 1, value: 100 })
+  ])));
+  try {
+    const b = localStorage.getItem('pokerleague.buyin');
+    if (b && Number(b) > 0) $('#chipBuyIn').value = b;
+    const own = JSON.parse(localStorage.getItem('pokerleague.chipset') || 'null');
+    if (own && own.on) {
+      $('#chipLimit').checked = true;
+      $('#chipOwnedWrap').hidden = false;
+      CHIPS.forEach(c => { if (Number.isFinite(own[c.key])) $('#chipOwn-' + c.key).value = own[c.key]; });
+    }
+  } catch (e) {}
+  const saveChipSet = () => {
+    try {
+      const own = { on: $('#chipLimit').checked };
+      CHIPS.forEach(c => own[c.key] = Number($('#chipOwn-' + c.key).value));
+      localStorage.setItem('pokerleague.chipset', JSON.stringify(own));
+    } catch (e) {}
+  };
+  $('#chipLimit').addEventListener('change', () => {
+    $('#chipOwnedWrap').hidden = !$('#chipLimit').checked;
+    saveChipSet(); renderChips();
+  });
+  ['#chipBuyIn', '#chipPlayers'].forEach(sel =>
+    $(sel).addEventListener('input', renderChips));
+  $('#chipBuyIn').addEventListener('change', () => {
+    try { localStorage.setItem('pokerleague.buyin', $('#chipBuyIn').value); } catch (e) {}
+  });
+  CHIPS.forEach(c => $('#chipOwn-' + c.key).addEventListener('input', () => { saveChipSet(); renderChips(); }));
 
   $('#spinBtn').addEventListener('click', spinSeats);
   $('#clearDraw').addEventListener('click', () => {
