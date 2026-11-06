@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a0e14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&family=Oswald:wght@300;400;500;600&display=swap">
 <style>
 /* Layout: sticky top bar with tab nav; single content column capped at 1180px;
    stat tiles in an auto-fit grid; tables scroll inside their own container. */
@@ -461,7 +461,6 @@ td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .h2h-card .who{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:600}
 .h2h-card .sub{font-size:12.5px;color:var(--ink-3);margin-top:3px}
 
-.chase-note{font-size:12.5px;color:var(--ink-3);margin-top:10px}
 
 .empty{
   text-align:center;padding:40px 20px;color:var(--ink-3);font-size:14px;
@@ -476,6 +475,78 @@ footer{
   font-size:12px;color:var(--ink-3);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
 }
 
+/* ---------- standings: card-room scoreboard ---------- */
+/* Scoped to the standings view alone. Redefining the surface and ink variables
+   here means the existing panel, table and tile rules pick up the felt palette
+   without being rewritten, and every other tab keeps the house style. */
+#view-table{
+  --surface:#123526;
+  --surface-2:#17422f;
+  --surface-3:#1d5138;
+  --line:rgba(214,196,152,.22);
+  --line-soft:rgba(214,196,152,.12);
+  --ink:#f2ead6;
+  --ink-2:#c3b995;
+  --ink-3:#95a08c;
+  --accent:#d9b65f;
+  --up:#f0c75e;
+  --down:#e2836a;
+  --flat:#93a08d;
+  --mono:"Oswald","Arial Narrow",system-ui,sans-serif;
+  --sans:"Oswald","Arial Narrow",system-ui,sans-serif;
+  font-family:var(--sans);
+  color:var(--ink);
+  background:
+    radial-gradient(125% 85% at 50% 0%, rgba(255,255,255,.06), transparent 60%),
+    #0d2b1f;
+  border:1px solid rgba(214,196,152,.22);
+  border-radius:var(--radius);
+  padding:20px;
+  position:relative;
+}
+/* gold stitching inside the edge, echoing the rail on the seat-draw table */
+#view-table::before{
+  content:"";position:absolute;inset:7px;border-radius:7px;pointer-events:none;
+  border:1px dashed rgba(214,196,152,.20);
+}
+#view-table h2,#view-table h3{
+  font-size:19px;font-weight:500;letter-spacing:.11em;text-transform:uppercase;
+}
+#view-table .muted{letter-spacing:.03em}
+#view-table thead th{
+  font-size:11px;font-weight:500;letter-spacing:.17em;
+}
+#view-table tbody td{font-size:15px;font-weight:300;letter-spacing:.015em}
+#view-table .num{font-variant-numeric:lining-nums tabular-nums}
+#view-table tbody td.num{font-weight:400}
+#view-table .who span{font-weight:400;letter-spacing:.035em}
+#view-table .rank{font-size:15px;font-weight:400}
+#view-table .rank.medal{color:var(--accent);font-weight:600}
+#view-table tbody tr.clickable:hover{background:rgba(214,196,152,.06)}
+
+/* the five figures as one strip, divided by rules rather than five boxes */
+#view-table .tiles{
+  display:flex;flex-wrap:wrap;gap:0;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;
+}
+#view-table .tile{
+  flex:1 1 170px;min-width:0;background:none;border:0;border-radius:0;
+  padding:15px 18px;position:relative;
+}
+#view-table .tile + .tile::before{
+  content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;
+  background:var(--line-soft);
+}
+#view-table .tile .k{font-size:10.5px;font-weight:500;letter-spacing:.17em}
+#view-table .tile .v{font-size:28px;font-weight:500;letter-spacing:.01em}
+#view-table .tile .n{font-weight:300;letter-spacing:.03em}
+@media (max-width:620px){
+  #view-table{padding:13px}
+  #view-table::before{inset:5px}
+  #view-table .tile{flex:1 1 50%}
+  #view-table .tile .v{font-size:23px}
+}
 @media (max-width:620px){
   .tile .v{font-size:21px}
   .profile-head .nm{font-size:22px}
@@ -533,13 +604,6 @@ footer{
           <tbody></tbody>
         </table>
       </div>
-    </div>
-    <div class="panel">
-      <div class="panel-head">
-        <h3>The chase</h3>
-        <span class="muted">Running total, night by night</span>
-      </div>
-      <div class="panel-body"><div id="chaseChart"></div></div>
     </div>
   </section>
 
@@ -1098,101 +1162,6 @@ const niceStep = range => {
   return [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
 };
 
-/* The chase: every player's running total across the season. Everyone is drawn
-   in grey; the top three are coloured and labelled, so identity never rests on
-   colour alone. Players who sat a night out carry their line flat across it. */
-const CHASE_COLOURS = ['#f0b429', '#3fb0d6', '#e2608f'];
-
-function drawChase(host, season) {
-  host.textContent = '';
-  const { stats } = computeStats(season);
-  const nights = approvedNights(season);
-  const runners = Array.from(stats.values()).filter(s => s.played > 0);
-
-  if (!nights.length || !runners.length) {
-    host.append(emptyBlock('No approved nights yet',
-      'Once a night is approved, everyone\u2019s running total is plotted here.'));
-    return;
-  }
-
-  const lines = runners.map(s => {
-    const byId = new Map(s.history.map(h => [h.nightId, h.net]));
-    let run = 0;
-    const pts = [0];
-    for (const n of nights) { if (byId.has(n.id)) run += byId.get(n.id); pts.push(run); }
-    return { name: s.player.name, pts, final: run };
-  }).sort((a, b) => b.final - a.final);
-
-  // a narrower viewBox on phones, so the SVG is scaled down less and stays legible
-  const narrow = host.clientWidth > 0 && host.clientWidth < 520;
-  const W = narrow ? 430 : 760, H = narrow ? 330 : 300;
-  const PAD_T = 16, PAD_B = 34;
-  const PAD_L = narrow ? 46 : 56, PAD_R = narrow ? 78 : 92;
-  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
-  const all = lines.flatMap(l => l.pts);
-  const step = niceStep((Math.max(...all) - Math.min(...all)) || 20);
-  const yLo = Math.min(0, Math.floor(Math.min(...all) / step) * step);
-  const yHi = Math.max(0, Math.ceil(Math.max(...all) / step) * step);
-  const span = (yHi - yLo) || step;
-  const n = nights.length;
-  const X = i => PAD_L + (n === 0 ? plotW / 2 : (i / n) * plotW);
-  const Y = v => PAD_T + plotH - ((v - yLo) / span) * plotH;
-
-  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
-    'aria-label': 'Running profit for every player across the season' });
-
-  for (let v = yLo; v <= yHi + 0.001; v += step) {
-    const gy = Y(v);
-    svg.append(sv('line', { x1: PAD_L, x2: W - PAD_R, y1: gy, y2: gy,
-      stroke: Math.abs(v) < 0.001 ? 'var(--ink-3)' : 'var(--line)',
-      'stroke-width': Math.abs(v) < 0.001 ? 1.5 : 1 }));
-    const t = sv('text', { x: PAD_L - 10, y: gy + 4, 'text-anchor': 'end',
-      fill: 'var(--ink-3)', 'font-size': 11, 'font-family': 'var(--mono)' });
-    t.textContent = money(v);
-    svg.append(t);
-  }
-
-  const path = l => l.pts.map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join(' ');
-
-  // the pack first, so the leaders sit on top of it
-  lines.slice(3).forEach(l => {
-    svg.append(sv('path', { d: path(l), fill: 'none', stroke: 'var(--surface-3)',
-      'stroke-width': 1.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-  });
-
-  lines.slice(0, 3).forEach((l, i) => {
-    const c = CHASE_COLOURS[i];
-    svg.append(sv('path', { d: path(l), fill: 'none', stroke: c,
-      'stroke-width': 2.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-    svg.append(sv('circle', { cx: X(n), cy: Y(l.final), r: 4, fill: c,
-      stroke: 'var(--surface)', 'stroke-width': 1.5 }));
-    const lab = sv('text', { x: X(n) + 10, y: Y(l.final) + 4, fill: c,
-      'font-size': 12.5, 'font-family': 'var(--sans)', 'font-weight': 600 });
-    lab.textContent = l.name + '  ' + signed(l.final);
-    svg.append(lab);
-  });
-
-  const marks = new Set([1, n]);
-  if (n > (narrow ? 3 : 6)) marks.add(Math.round(n / 2));
-  else for (let i = 1; i <= n; i++) marks.add(i);
-  marks.forEach(i => {
-    if (i < 1 || i > n) return;
-    const t = sv('text', { x: X(i), y: H - PAD_B + 18,
-      'text-anchor': i === n ? 'end' : i === 1 ? 'start' : 'middle',
-      fill: 'var(--ink-3)', 'font-size': 11, 'font-family': 'var(--mono)' });
-    t.textContent = fmtDate(nights[i - 1].played_on);
-    svg.append(t);
-  });
-
-  const wrap = el('div', { class: 'chart-wrap' });
-  wrap.append(svg);
-  host.append(wrap);
-  host.append(el('div', { class: 'chase-note',
-    text: lines.length > 3
-      ? 'Leaders named; the other ' + (lines.length - 3) + ' are the grey pack.'
-      : 'Everyone who has played so far.' }));
-}
-
 /* Cumulative profit line for one player, with hover crosshair. */
 function drawCumulative(host, series, label) {
   host.textContent = '';
@@ -1413,8 +1382,6 @@ function renderStandings() {
   $('#standingsMeta').textContent = nights.length
     ? nights.length + ' night' + (nights.length === 1 ? '' : 's') + ' · tap a row for the full profile'
     : 'Nothing approved yet';
-
-  drawChase($('#chaseChart'), state.season);
 }
 
 function tile(k, v, n, cls) {
@@ -2895,7 +2862,6 @@ function boot() {
     clearTimeout(rt);
     rt = setTimeout(() => {
       if (state.view === 'draw' && !state.draw.spinning) renderDrawTable();
-      if (state.view === 'table') drawChase($('#chaseChart'), state.season);
     }, 150);
   });
 
