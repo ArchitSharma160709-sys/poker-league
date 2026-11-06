@@ -1039,6 +1039,22 @@ function approvedNights(season) {
     .slice()
     .sort((a, b) => (a.played_on < b.played_on ? -1 : a.played_on > b.played_on ? 1 : a.id - b.id));
 }
+/* Who counts as "the league" right now. Players carry an "active" flag: the
+   five who played Season 1 and have since left are stored with active = false,
+   so they keep their history without turning up in the seat draw or the squad.
+   Anything loaded before that column existed has no flag, so only an explicit
+   false counts as gone. */
+const activePlayers = () => state.players.filter(p => p.active !== false);
+
+/* The squad for the season being viewed: everyone still playing, plus anyone
+   who has left but turned out that season — so Season 1 shows its full line-up
+   and Season 2 shows only the people still in it. */
+function squad(season = state.season) {
+  const played = new Set();
+  for (const n of approvedNights(season))
+    for (const e of n.entries || []) played.add(e.player_id);
+  return state.players.filter(p => p.active !== false || played.has(p.id));
+}
 
 function nightTotals(night) {
   let inn = 0, out = 0, rebuys = 0;
@@ -1335,7 +1351,7 @@ function renderStandings() {
     tile('Total staked', money(potTotal), 'Across ' + nights.length + ' night' + (nights.length === 1 ? '' : 's')),
     tile('League leader', leader ? leader.player.name : '–', leader ? signed(leader.net) : 'No results yet', leader ? signClass(leader.net) : ''),
     tile('Biggest single night', biggest ? signed(biggest.net) : '–', biggest ? biggest.who : 'No results yet', biggest ? 'pos' : ''),
-    tile('Players involved', String(rows.length), 'of ' + state.players.length + ' on the books')
+    tile('Players involved', String(rows.length), 'of ' + squad().length + ' on the books')
   );
 
   const thead = $('#standings thead');
@@ -1509,7 +1525,7 @@ function renderPlayers() {
   const ring = $('#ring'), stage = $('#ringStage'), now = $('#ringNow');
   ring.textContent = '';
 
-  const list = state.players.slice().sort((a, b) => {
+  const list = squad().sort((a, b) => {
     const ra = ratings.get(a.id), rb = ratings.get(b.id);
     return (rb.overall ?? -1) - (ra.overall ?? -1) || a.name.localeCompare(b.name);
   });
@@ -1584,7 +1600,7 @@ function renderPlayers() {
 
   tick();
 
-  $('#playersMeta').textContent = state.players.length + ' on the books · season ' + state.season;
+  $('#playersMeta').textContent = squad().length + ' on the books · season ' + state.season;
 }
 
 /* ===================================================================
@@ -2131,7 +2147,7 @@ function renderDrawTable() {
 function renderPickList() {
   const list = $('#pickList');
   list.textContent = '';
-  state.players.forEach(p => {
+  activePlayers().forEach(p => {
     const on = state.draw.picked.has(p.id);
     const label = el('label', { class: 'pick' + (on ? ' on' : '') });
     const box = el('input', { type: 'checkbox', checked: on });
@@ -2232,7 +2248,7 @@ function renderLogForm() {
   const hostSel = $('#logHost');
   hostSel.textContent = '';
   hostSel.append(el('option', { value: '', text: '—' }));
-  state.players.forEach(p => hostSel.append(el('option', { value: p.id, text: p.name })));
+  activePlayers().forEach(p => hostSel.append(el('option', { value: p.id, text: p.name })));
 
   const thead = $('#entryGrid thead');
   thead.textContent = '';
@@ -2250,7 +2266,7 @@ function renderLogForm() {
   state.logRows = new Map();
   const syncers = [];
 
-  state.players.forEach(p => {
+  activePlayers().forEach(p => {
     const row = { on: false, moneyIn: 0, rebuys: 0, cashOut: 0 };
     const tr = el('tr', { class: 'off' });
 
@@ -2753,8 +2769,15 @@ function renderChrome() {
     ]));
   }
 
+  renderFootMeta();
+}
+
+/* The footer counts the season on screen, so it has to be redrawn when the
+   season changes as well as when the data reloads. */
+function renderFootMeta() {
   const approved = approvedNights(state.season).length;
-  $('#footMeta').textContent = state.players.length + ' players · ' + approved + ' approved night' + (approved === 1 ? '' : 's');
+  $('#footMeta').textContent = activePlayers().length + ' players · ' +
+    approved + ' approved night' + (approved === 1 ? '' : 's');
 }
 
 async function refresh() {
@@ -2763,7 +2786,7 @@ async function refresh() {
   state.players = data.players.map(p => ({ ...p, slug: p.slug || slugify(p.name) }));
   state.nights = data.nights;
   // everyone is in the draw by default; keep any hand-picked selection after that
-  if (firstLoad) state.players.forEach(p => state.draw.picked.add(p.id));
+  if (firstLoad) activePlayers().forEach(p => state.draw.picked.add(p.id));
   renderChrome();
   route();
 }
@@ -2849,6 +2872,7 @@ function boot() {
   $('#seasonSel').addEventListener('change', e => {
     state.season = Number(e.target.value);
     $('#brandSub').textContent = 'Season ' + state.season;
+    renderFootMeta();
     route();
   });
   $$('#tabs button').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
